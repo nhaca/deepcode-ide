@@ -922,6 +922,18 @@ class AIPanel {
                     await this.requestTerminalPermission(termCmds);
                 }
 
+                const contextFiles = this._extractContextFiles(projectContext);
+                const tokenBefore = this._estimateTokens(this.history.slice(0, -1));
+                const tokenAfter = this._estimateTokens(this.history);
+                const tokenUsed = tokenAfter - tokenBefore;
+                this.addActivitySummary({
+                    fileReads: contextFiles,
+                    fileOps: fileOps,
+                    termCmds: termCmds,
+                    tokensUsed: tokenUsed,
+                    charCount: fullContent.length,
+                });
+
                 this.history.push({ role: 'assistant', content: fullContent });
                 this.saveHistory();
                 this.credits = await client.getCredits();
@@ -961,6 +973,59 @@ class AIPanel {
             chars += (msg.content || '').length;
         }
         return Math.ceil(chars / 3);
+    }
+
+    _extractContextFiles(context) {
+        if (!context) return [];
+        const files = [];
+        const readFileRegex = /### ([^\n]+)\n```/g;
+        let match;
+        while ((match = readFileRegex.exec(context)) !== null) {
+            const name = match[1].trim();
+            if (name && !name.includes('Project Structure') && !name.includes('Current File')) {
+                files.push(name);
+            }
+        }
+        const currentFileMatch = context.match(/## Current File: ([^\n]+)/);
+        if (currentFileMatch) {
+            files.push(currentFileMatch[1].trim() + ' (đang mở)');
+        }
+        return files;
+    }
+
+    addActivitySummary({ fileReads, fileOps, termCmds, tokensUsed, charCount }) {
+        const items = [];
+
+        if (fileReads && fileReads.length > 0) {
+            items.push(`<div class="activity-item"><span class="activity-icon read"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span><span class="activity-text">Đọc ${fileReads.length} file: ${fileReads.slice(0, 3).join(', ')}${fileReads.length > 3 ? ` +${fileReads.length - 3}` : ''}</span></div>`);
+        }
+
+        if (fileOps && fileOps.length > 0) {
+            const creates = fileOps.filter(o => o.action === 'create');
+            const edits = fileOps.filter(o => o.action === 'edit');
+            const deletes = fileOps.filter(o => o.action === 'delete');
+            const parts = [];
+            if (creates.length) parts.push(`tạo ${creates.length} file: ${creates.map(o => o.path).join(', ')}`);
+            if (edits.length) parts.push(`sửa ${edits.length} file: ${edits.map(o => o.path).join(', ')}`);
+            if (deletes.length) parts.push(`xóa ${deletes.length} file: ${deletes.map(o => o.path).join(', ')}`);
+            items.push(`<div class="activity-item"><span class="activity-icon write"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><span class="activity-text">${parts.join('; ')}</span></div>`);
+        }
+
+        if (termCmds && termCmds.length > 0) {
+            items.push(`<div class="activity-item"><span class="activity-icon term"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><span class="activity-text">Chạy ${termCmds.length} lệnh terminal</span></div>`);
+        }
+
+        items.push(`<div class="activity-item"><span class="activity-icon token"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12"/></svg></span><span class="activity-text">~${tokensUsed} tokens · ${charCount} ký tự</span></div>`);
+
+        if (items.length === 0) return;
+
+        const div = document.createElement('div');
+        div.className = 'ai-message system';
+        div.innerHTML = `<div class="activity-summary">${items.join('')}</div>`;
+
+        const messages = document.querySelector('#aiColumn #aiMessages') || document.getElementById('aiMessages');
+        messages?.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
     }
 
     parseFileOperations(content) {

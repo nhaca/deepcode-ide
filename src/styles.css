@@ -546,6 +546,46 @@ body {
 
 .status-item:hover { background: rgba(255, 255, 255, 0.15); }
 
+/* Activity Summary */
+.activity-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 8px 12px;
+    margin: 4px 0 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-muted);
+}
+
+.activity-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.activity-icon.read { background: rgba(96, 165, 250, 0.15); color: var(--accent-blue); }
+.activity-icon.write { background: rgba(124, 92, 252, 0.15); color: var(--accent-purple); }
+.activity-icon.term { background: rgba(251, 191, 36, 0.15); color: var(--accent-yellow); }
+.activity-icon.token { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); }
+
+.activity-text {
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
 /* Message Styles */
 .message { margin-bottom: 16px; }
 .message.user .message-content { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; }
