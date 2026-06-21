@@ -428,6 +428,7 @@ class AIPanel {
 
                     this.credits = await client.getCredits();
                     this.showLoggedInUI(data.user);
+                    window.ide?.showToast?.('+100 credits đã được thêm!');
                 } catch (e) {
                     console.error('Auth callback error:', e.message);
                     window.deepcodeClient.logout();
