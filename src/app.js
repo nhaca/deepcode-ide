@@ -71,6 +71,26 @@ class DeepCodeIDE {
         this.setupResize();
         this.setupSettingsModal();
         this.setupContextMenu();
+        this.restoreLastFolder();
+    }
+
+    async restoreLastFolder() {
+        const lastFolder = localStorage.getItem('deepcode-last-folder');
+        if (lastFolder) {
+            try {
+                const items = await window.api.fs.readDirectory(lastFolder);
+                if (items !== null) {
+                    this.currentFolder = lastFolder;
+                    window.state.set('workspaceRoot', lastFolder);
+                    await this.loadFileTree(lastFolder);
+                    this.refreshGitStatus();
+                    if (this.terminalManager) {
+                        this.terminalManager.killAll();
+                        this.terminalManager.create(lastFolder);
+                    }
+                }
+            } catch {}
+        }
     }
 
     setupTitleBar() {
@@ -140,6 +160,7 @@ class DeepCodeIDE {
         if (folderPath) {
             this.currentFolder = folderPath;
             window.state.set('workspaceRoot', folderPath);
+            localStorage.setItem('deepcode-last-folder', folderPath);
             await this.loadFileTree(folderPath);
             this.refreshGitStatus();
             if (this.terminalManager) {
