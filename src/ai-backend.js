@@ -207,7 +207,8 @@ class AtxpAPI {
             if (res.status !== 401 && res.status !== 403) break;
         }
 
-        throw new Error(lastError?.error?.message || lastError?.error || `DeepCode Server 2 API error: ${JSON.stringify(lastError)}`);
+        const errDetail = lastError?.error?.[0]?.message || lastError?.message || JSON.stringify(lastError);
+        throw new Error(errDetail);
     }
 
     async getModels() {
