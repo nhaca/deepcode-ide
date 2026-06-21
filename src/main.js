@@ -184,6 +184,26 @@ ipcMain.handle('fs:delete-file', async (event, filePath) => {
     }
 });
 
+ipcMain.handle('fs:rename', async (event, oldPath, newName) => {
+    try {
+        const dir = path.dirname(oldPath);
+        const newPath = path.join(dir, newName);
+        fs.renameSync(oldPath, newPath);
+        return newPath;
+    } catch {
+        return null;
+    }
+});
+
+ipcMain.handle('fs:mkdir', async (event, dirPath) => {
+    try {
+        fs.mkdirSync(dirPath, { recursive: true });
+        return true;
+    } catch {
+        return false;
+    }
+});
+
 // Terminal
 const terminals = new Map();
 

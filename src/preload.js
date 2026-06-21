@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('api', {
         readFile: (path) => ipcRenderer.invoke('fs:read-file', path),
         writeFile: (path, content) => ipcRenderer.invoke('fs:write-file', path, content),
         deleteFile: (path) => ipcRenderer.invoke('fs:delete-file', path),
+        rename: (oldPath, newName) => ipcRenderer.invoke('fs:rename', oldPath, newName),
+        mkdir: (dirPath) => ipcRenderer.invoke('fs:mkdir', dirPath),
         readDirectory: (path) => ipcRenderer.invoke('fs:read-directory', path),
     },
     app: {

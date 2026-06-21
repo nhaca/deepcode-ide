@@ -2590,3 +2590,46 @@ body {
     position: relative;
 }
 
+/* Context Menu */
+.context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: #1a1625;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 4px 0;
+    min-width: 180px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    font-size: 13px;
+    display: none;
+}
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.context-menu-item:hover {
+    background: #334155;
+}
+.context-menu-item.danger { color: #f87171; }
+.context-menu-item.danger:hover { background: #7f1d1d; }
+.context-menu-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+.context-menu-sep { height: 1px; background: #334155; margin: 4px 0; }
+
+/* Inline rename input */
+.file-rename-input {
+    background: #1e1a2e;
+    border: 1px solid var(--accent-blue);
+    border-radius: 3px;
+    color: var(--text-primary);
+    font-size: 12px;
+    padding: 1px 4px;
+    outline: none;
+    width: 120px;
+    font-family: inherit;
+}
+
