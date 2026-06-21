@@ -15,7 +15,11 @@ function getAtxpConfig() {
         { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
     ];
     const idx = parseInt(localStorage.getItem('deepcode-atxp-idx') || '0') % accounts.length;
-    return accounts[idx];
+    const cfg = accounts[idx];
+    return {
+        ...cfg,
+        connectionString: `https://accounts.atxp.ai?connection_token=${cfg.token}&account_id=${cfg.accountId}`,
+    };
 }
 
 // ========== DeepCode API Client ==========
@@ -167,10 +171,10 @@ class AtxpAPI {
         };
 
         const accounts = [
-            { token: 'yag0uXh7o5dsHU9kv60Zb', accountId: 'atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
-            { token: '9nG86jG8LD2oI8Ok9Kx2h', accountId: 'atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
-            { token: 'YcoJiP29r0VLJrJYe2ABG', accountId: 'atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
-            { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=yag0uXh7o5dsHU9kv60Zb&account_id=atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=9nG86jG8LD2oI8Ok9Kx2h&account_id=atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=YcoJiP29r0VLJrJYe2ABG&account_id=atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=0dxF36u0wAMuXeaJGbo2p&account_id=atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
         ];
 
         let lastError;
@@ -178,8 +182,7 @@ class AtxpAPI {
             const cfg = accounts[i];
             const headers = {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${cfg.token}`,
-                'x-account-id': cfg.accountId,
+                'Authorization': `Bearer ${cfg.connectionString}`,
             };
 
             const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
@@ -213,10 +216,10 @@ class AtxpAPI {
 
     async getModels() {
         const accounts = [
-            { token: 'yag0uXh7o5dsHU9kv60Zb', accountId: 'atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
-            { token: '9nG86jG8LD2oI8Ok9Kx2h', accountId: 'atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
-            { token: 'YcoJiP29r0VLJrJYe2ABG', accountId: 'atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
-            { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=yag0uXh7o5dsHU9kv60Zb&account_id=atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=9nG86jG8LD2oI8Ok9Kx2h&account_id=atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=YcoJiP29r0VLJrJYe2ABG&account_id=atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
+            { connectionString: 'https://accounts.atxp.ai?connection_token=0dxF36u0wAMuXeaJGbo2p&account_id=atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
         ];
 
         for (let i = 0; i < accounts.length; i++) {
@@ -224,8 +227,7 @@ class AtxpAPI {
             const res = await fetch(`${this.baseUrl}/v1/models`, {
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cfg.token}`,
-                    'x-account-id': cfg.accountId,
+                    'Authorization': `Bearer ${cfg.connectionString}`,
                 },
             });
 
