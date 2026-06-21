@@ -1,0 +1,195 @@
+class TerminalManager {
+    constructor(container) {
+        this.container = container;
+        this.terminals = new Map();
+        this.activeId = null;
+        this.xterm = null;
+        this.fitAddon = null;
+    }
+
+    async init() {
+        if (this.xterm) return;
+
+        await this._loadXterm();
+
+        if (!window.Terminal) {
+            console.warn('xterm.js not loaded, terminal unavailable');
+            this.container.innerHTML = '<div style="padding:20px;color:#888;">Terminal không khả dụng. Kiểm tra kết nối mạng.</div>';
+            return;
+        }
+
+        this.xterm = new window.Terminal({
+            theme: {
+                background: '#0d0b14',
+                foreground: '#e8e5f0',
+                cursor: '#7c5cfc',
+                cursorAccent: '#0d0b14',
+                selectionBackground: '#2a2540',
+                black: '#0d0b14',
+                red: '#f87171',
+                green: '#34d399',
+                yellow: '#fbbf24',
+                blue: '#60a5fa',
+                magenta: '#7c5cfc',
+                cyan: '#22d3ee',
+                white: '#e8e5f0',
+                brightBlack: '#6b6580',
+                brightRed: '#f87171',
+                brightGreen: '#34d399',
+                brightYellow: '#fbbf24',
+                brightBlue: '#60a5fa',
+                brightMagenta: '#7c5cfc',
+                brightCyan: '#22d3ee',
+                brightWhite: '#e8e5f0',
+            },
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 13,
+            lineHeight: 1.4,
+            cursorBlink: true,
+            cursorStyle: 'bar',
+            allowProposedApi: true,
+        });
+
+        this.fitAddon = new window.FitAddon.FitAddon();
+        this.xterm.loadAddon(this.fitAddon);
+
+        try {
+            const webglAddon = new window.WebglAddon.WebglAddon();
+            this.xterm.loadAddon(webglAddon);
+            webglAddon.onContextLoss(() => {
+                webglAddon.dispose();
+                console.warn('WebGL context lost, falling back to canvas renderer');
+            });
+        } catch (e) {
+            console.warn('WebGL addon unavailable, using canvas renderer');
+        }
+
+        this.xterm.open(this.container);
+        setTimeout(() => this.fitAddon.fit(), 100);
+
+        this._observeResize();
+        this._setupInput();
+    }
+
+    async _loadXterm() {
+        if (window.Terminal) return;
+
+        const basePath = '../node_modules/xterm';
+
+        return new Promise((resolve) => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `${basePath}/css/xterm.css`;
+            document.head.appendChild(link);
+
+            const scripts = [
+                `${basePath}/lib/xterm.js`,
+                '../node_modules/xterm-addon-fit/lib/xterm-addon-fit.js',
+                '../node_modules/xterm-addon-webgl/lib/xterm-addon-webgl.js',
+            ];
+
+            let loaded = 0;
+            const total = scripts.length;
+            scripts.forEach((src) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    loaded++;
+                    if (loaded === total) resolve();
+                };
+                script.onerror = () => {
+                    loaded++;
+                    console.warn(`Failed to load: ${src}`);
+                    if (loaded === total) resolve();
+                };
+                document.head.appendChild(script);
+            });
+
+            setTimeout(resolve, 3000);
+        });
+    }
+
+    _observeResize() {
+        const ro = new ResizeObserver(() => {
+            requestAnimationFrame(() => {
+                if (this.fitAddon) {
+                    this.fitAddon.fit();
+                }
+            });
+        });
+        ro.observe(this.container);
+    }
+
+    _setupInput() {
+        this.xterm.onData((data) => {
+            if (this.activeId) {
+                window.api.terminal.write(this.activeId, data);
+            }
+        });
+    }
+
+    async create(cwd) {
+        await this.init();
+
+        const id = await window.api.terminal.create(cwd);
+        if (!id) return null;
+
+        this.terminals.set(id, { id, buffer: '' });
+        this.activeId = id;
+
+        window.api.terminal.onData(id, (data) => {
+            this.xterm.write(data);
+        });
+
+        window.api.terminal.onExit(id, (code) => {
+            this.xterm.writeln(`\r\n[Process exited with code ${code}]`);
+            this.terminals.delete(id);
+            if (this.activeId === id) {
+                this.activeId = null;
+            }
+        });
+
+        this.xterm.focus();
+        return id;
+    }
+
+    write(data) {
+        if (this.xterm) {
+            this.xterm.write(data);
+        }
+    }
+
+    kill(id) {
+        window.api.terminal.kill(id);
+        this.terminals.delete(id);
+    }
+
+    killAll() {
+        this.terminals.forEach((_, id) => {
+            window.api.terminal.kill(id);
+        });
+        this.terminals.clear();
+    }
+
+    resize() {
+        if (this.fitAddon) {
+            this.fitAddon.fit();
+        }
+    }
+
+    show() {
+        if (this.container) {
+            this.container.style.display = 'block';
+            this.resize();
+            this.xterm?.focus();
+        }
+    }
+
+    hide() {
+        if (this.container) {
+            this.container.style.display = 'none';
+        }
+    }
+}
+
+window.TerminalManager = TerminalManager;
