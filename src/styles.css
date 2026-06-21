@@ -39,6 +39,8 @@ body {
     overflow: hidden;
     height: 100vh;
     user-select: none;
+    display: flex;
+    flex-direction: column;
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -94,6 +96,8 @@ body {
 /* IDE Shell - Flexbox layout */
 .ide-shell {
     display: flex;
+    flex: 1;
+    min-height: 0;
     height: calc(100vh - var(--title-bar-height) - var(--status-bar-height));
 }
 
@@ -187,18 +191,6 @@ body {
     background: var(--accent-purple);
     border-radius: 0 2px 2px 0;
 }
-
-/* Sidebar */
-.sidebar {
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.sidebar-section { padding: 8px; }
-.sidebar-section.flex-1 { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
 .sidebar-btn {
     display: flex;
@@ -310,6 +302,7 @@ body {
     overflow: hidden;
     background: var(--bg-primary);
     min-width: 300px;
+    min-height: 0;
 }
 
 /* Tabs Bar */
@@ -353,7 +346,7 @@ body {
 .tab-close:hover { background: var(--bg-active); color: var(--text-primary); }
 
 /* Editor Panels Container */
-.editor-panels { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.editor-panels { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 
 /* Welcome Panel */
 .welcome-panel {
@@ -363,6 +356,7 @@ body {
     justify-content: center;
     overflow-y: auto;
     background: var(--bg-primary);
+    min-height: 0;
 }
 
 .welcome-content { max-width: 500px; padding: 40px; text-align: center; }
@@ -548,10 +542,6 @@ body {
 }
 
 .status-item:hover { background: rgba(255, 255, 255, 0.15); }
-
-/* Resize Handle */
-.resize-handle { width: 4px; background: transparent; cursor: col-resize; transition: background 0.15s ease; }
-.resize-handle:hover { background: var(--accent-purple); }
 
 /* Message Styles */
 .message { margin-bottom: 16px; }
@@ -2015,6 +2005,7 @@ body {
     font-family: 'JetBrains Mono', monospace;
     outline: none;
     appearance: none;
+    -webkit-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6580' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 8px center;
@@ -2035,10 +2026,10 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: fadeIn 0.2s ease;
+    animation: fadeInOverlay 0.2s ease;
 }
 
-@keyframes fadeIn {
+@keyframes fadeInOverlay {
     from { opacity: 0; }
     to { opacity: 1; }
 }
@@ -2379,3 +2370,4 @@ body {
 .ai-input-wrapper {
     position: relative;
 }
+
