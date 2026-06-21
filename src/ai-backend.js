@@ -166,7 +166,7 @@ class AtxpAPI {
             stream,
         };
 
-        const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
             method: 'POST',
             headers: this._getHeaders(),
             body: JSON.stringify(body),
@@ -191,7 +191,7 @@ class AtxpAPI {
     }
 
     async getModels() {
-        const res = await fetch(`${this.baseUrl}/models`, {
+        const res = await fetch(`${this.baseUrl}/v1/models`, {
             headers: this._getHeaders(),
         });
 
