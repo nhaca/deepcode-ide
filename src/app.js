@@ -352,11 +352,42 @@ class DeepCodeIDE {
                 e.target.style.display = 'none';
             }
         });
+
+        const providerSelect = document.getElementById('settingsProvider');
+        const atxpKeyRow = document.getElementById('atxpApiKeyRow');
+        const atxpAccountIdRow = document.getElementById('atxpAccountIdRow');
+
+        const savedProvider = localStorage.getItem('deepcode-provider') || 'deepcode';
+        if (providerSelect) providerSelect.value = savedProvider;
+        if (atxpKeyRow) atxpKeyRow.style.display = savedProvider === 'atxp' ? 'flex' : 'none';
+        if (atxpAccountIdRow) atxpAccountIdRow.style.display = savedProvider === 'atxp' ? 'flex' : 'none';
+
+        const savedAtxpKey = localStorage.getItem('deepcode-atxp-token') || '';
+        const savedAtxpAccountId = localStorage.getItem('deepcode-atxp-account-id') || '';
+        const atxpKeyInput = document.getElementById('settingsAtxpKey');
+        const atxpAccountIdInput = document.getElementById('settingsAtxpAccountId');
+        if (atxpKeyInput) atxpKeyInput.value = savedAtxpKey;
+        if (atxpAccountIdInput) atxpAccountIdInput.value = savedAtxpAccountId;
+
+        providerSelect?.addEventListener('change', (e) => {
+            const isAtxp = e.target.value === 'atxp';
+            if (atxpKeyRow) atxpKeyRow.style.display = isAtxp ? 'flex' : 'none';
+            if (atxpAccountIdRow) atxpAccountIdRow.style.display = isAtxp ? 'flex' : 'none';
+        });
+
         document.getElementById('settingsSaveBtn')?.addEventListener('click', () => {
             const model = document.getElementById('settingsDefaultModel')?.value;
             const ctx = document.getElementById('settingsContextLimit')?.value;
+            const provider = providerSelect?.value || 'deepcode';
+            const atxpKey = atxpKeyInput?.value?.trim() || '';
+            const atxpAccountId = atxpAccountIdInput?.value?.trim() || '';
+
             if (model) localStorage.setItem('deepcode-default-model', model);
             if (ctx) localStorage.setItem('deepcode-context-limit', ctx);
+            localStorage.setItem('deepcode-provider', provider);
+            if (atxpKey) localStorage.setItem('deepcode-atxp-token', atxpKey);
+            if (atxpAccountId) localStorage.setItem('deepcode-atxp-account-id', atxpAccountId);
+
             document.getElementById('settingsModal').style.display = 'none';
         });
         this.updateConnectionStatus();

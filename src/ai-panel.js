@@ -310,11 +310,12 @@ class AIPanel {
 
     async loadModels() {
         try {
-            const { models } = await window.deepcodeClient.getModels();
+            const result = await window.deepcodeClient.getModels();
+            const models = Array.isArray(result) ? result : (result?.models || []);
             const dropdown = document.getElementById('aiModelDropdown');
             if (dropdown) {
                 dropdown.innerHTML = models.map(m =>
-                    `<option value="${m.id}">${m.id}</option>`
+                    `<option value="${m.id}">${m.name || m.id}</option>`
                 ).join('');
             }
         } catch (e) {

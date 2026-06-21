@@ -190,6 +190,21 @@
                     <div class="settings-group">
                         <h3>AI Assistant</h3>
                         <div class="settings-item">
+                            <label>Nhà cung cấp</label>
+                            <select id="settingsProvider">
+                                <option value="deepcode" selected>DeepCode</option>
+                                <option value="atxp">ATPX</option>
+                            </select>
+                        </div>
+                        <div class="settings-item" id="atxpApiKeyRow" style="display: none;">
+                            <label>ATPX API Key</label>
+                            <input type="password" id="settingsAtxpKey" placeholder=" connection_token..." style="flex:1; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:4px; padding:5px 8px; color:var(--text-primary); font-size:12px; outline:none;">
+                        </div>
+                        <div class="settings-item" id="atxpAccountIdRow" style="display: none;">
+                            <label>ATPX Account ID</label>
+                            <input type="text" id="settingsAtxpAccountId" placeholder="atxp_acct_..." style="flex:1; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:4px; padding:5px 8px; color:var(--text-primary); font-size:12px; outline:none;">
+                        </div>
+                        <div class="settings-item">
                             <label>Model mặc định</label>
                             <select id="settingsDefaultModel">
                                 <option value="deepcode-go" selected>DeepCode Go</option>
