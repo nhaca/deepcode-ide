@@ -8,10 +8,14 @@ function getApiUrl() {
 }
 
 function getAtxpConfig() {
-    return {
-        token: localStorage.getItem('deepcode-atxp-token') || '',
-        accountId: localStorage.getItem('deepcode-atxp-account-id') || '',
-    };
+    const accounts = [
+        { token: 'yag0uXh7o5dsHU9kv60Zb', accountId: 'atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
+        { token: '9nG86jG8LD2oI8Ok9Kx2h', accountId: 'atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
+        { token: 'YcoJiP29r0VLJrJYe2ABG', accountId: 'atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
+        { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
+    ];
+    const idx = parseInt(localStorage.getItem('deepcode-atxp-idx') || '0') % accounts.length;
+    return accounts[idx];
 }
 
 // ========== DeepCode API Client ==========
