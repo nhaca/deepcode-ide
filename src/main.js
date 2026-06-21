@@ -301,3 +301,77 @@ app.on('before-quit', () => {
     });
     terminals.clear();
 });
+
+// GitLab OAuth
+const http = require('http');
+const url = require('url');
+
+let gitlabOAuthServer = null;
+
+ipcMain.handle('gitlab:oauth-login', async (event, { appId, redirectUri }) => {
+    const authUrl = `https://gitlab.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=api+read_repository`;
+    shell.openExternal(authUrl);
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            gitlabOAuthServer?.close();
+            gitlabOAuthServer = null;
+            reject(new Error('Timeout'));
+        }, 120000);
+
+        const server = http.createServer(async (req, res) => {
+            const parsed = url.parse(req.url, true);
+            if (parsed.pathname === '/gitlab-callback') {
+                const code = parsed.query.code;
+                if (code) {
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end('<html><body style="background:#0d0b14;color:white;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh"><h2>Đã kết nối GitLab! Bạn có thể đóng tab này.</h2></body></html>');
+                    clearTimeout(timeout);
+                    server.close();
+                    gitlabOAuthServer = null;
+                    resolve({ code });
+                } else {
+                    res.writeHead(400);
+                    res.end('Missing code');
+                }
+            }
+        });
+
+        server.listen(0, '127.0.0.1', () => {
+            const port = server.address().port;
+            gitlabOAuthServer = server;
+        });
+
+        server.on('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+        });
+    });
+});
+
+ipcMain.handle('gitlab:exchange-token', async (event, { code, appId, appSecret, redirectUri }) => {
+    try {
+        const res = await fetch('https://gitlab.com/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                grant_type: 'authorization_code',
+                client_id: appId,
+                client_secret: appSecret,
+                code: code,
+                redirect_uri: redirectUri,
+            }),
+        });
+        const data = await res.json();
+        if (data.access_token) {
+            const userRes = await fetch('https://gitlab.com/api/v4/user', {
+                headers: { 'Authorization': `Bearer ${data.access_token}` },
+            });
+            const user = await userRes.json();
+            return { token: data.access_token, user };
+        }
+        return null;
+    } catch {
+        return null;
+    }
+});

@@ -472,26 +472,35 @@ class DeepCodeIDE {
     }
 
     async connectGitLab() {
-        const token = await this.customPrompt(
-            'Kết nối GitLab',
-            'Nhập GitLab Personal Access Token.\nTạo tại: gitlab.com/-/user_settings/personal_access_tokens\nCần quyền: api, read_repository'
-        );
-        if (!token) return;
+        const appId = localStorage.getItem('deepcode-gitlab-app-id');
+        const appSecret = localStorage.getItem('deepcode-gitlab-app-secret');
+
+        if (!appId || !appSecret) {
+            const id = await this.customPrompt('GitLab OAuth', 'Nhập GitLab Application ID.\nTạo tại: gitlab.com/-/user_settings/applications\nRedirect URI: http://127.0.0.1/gitlab-callback');
+            if (!id) return;
+            const secret = await this.customPrompt('GitLab OAuth', 'Nhập GitLab Application Secret:');
+            if (!secret) return;
+            localStorage.setItem('deepcode-gitlab-app-id', id);
+            localStorage.setItem('deepcode-gitlab-app-secret', secret);
+            return this.connectGitLab();
+        }
+
         try {
-            const res = await fetch('https://gitlab.com/api/v4/user', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                localStorage.setItem('deepcode-gitlab-token', token);
-                const user = await res.json();
-                localStorage.setItem('deepcode-gitlab-user', JSON.stringify(user));
+            const redirectUri = 'http://127.0.0.1/gitlab-callback';
+            const { code } = await window.api.gitlab.oauthLogin(appId, redirectUri);
+            if (!code) { this.showToast('Không nhận được code.', 'error'); return; }
+
+            const result = await window.api.gitlab.exchangeToken(code, appId, appSecret, redirectUri);
+            if (result && result.token) {
+                localStorage.setItem('deepcode-gitlab-token', result.token);
+                localStorage.setItem('deepcode-gitlab-user', JSON.stringify(result.user));
                 this.updateConnectionStatus();
-                this.showToast('Kết nối GitLab thành công! +100 tokens đã được thêm.');
+                this.showToast('Kết nối GitLab thành công!');
             } else {
-                this.showToast('Token không hợp lệ. Vui lòng thử lại.', 'error');
+                this.showToast('Token không hợp lệ.', 'error');
             }
         } catch (e) {
-            this.showToast('Lỗi kết nối GitLab: ' + e.message, 'error');
+            this.showToast('Lỗi OAuth: ' + e.message, 'error');
         }
     }
 

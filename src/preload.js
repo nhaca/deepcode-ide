@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld('api', {
         onData: (id, callback) => ipcRenderer.on(`terminal:data:${id}`, (_e, data) => callback(data)),
         onExit: (id, callback) => ipcRenderer.on(`terminal:exit:${id}`, (_e, code) => callback(code)),
     },
+    gitlab: {
+        oauthLogin: (appId, redirectUri) => ipcRenderer.invoke('gitlab:oauth-login', { appId, redirectUri }),
+        exchangeToken: (code, appId, appSecret, redirectUri) => ipcRenderer.invoke('gitlab:exchange-token', { code, appId, appSecret, redirectUri }),
+    },
     git: {
         status: (repoPath) => ipcRenderer.invoke('git:status', { repoPath }),
         diff: (repoPath, file) => ipcRenderer.invoke('git:diff', { repoPath, file }),
