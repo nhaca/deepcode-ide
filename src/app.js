@@ -23,6 +23,7 @@ class DeepCodeIDE {
         this.setupGitPanel();
         this.setupCommandPalette();
         this.setupAIPanel();
+        this.searchManager = new SearchManager();
         this.setupKeyboardShortcuts();
         this.setupResize();
         this.setupSettingsModal();
@@ -58,10 +59,16 @@ class DeepCodeIDE {
                 if (panel === 'git') {
                     gitSection.style.display = 'flex';
                     fileTreeSection.style.display = 'none';
+                    document.getElementById('searchPanelSection').style.display = 'none';
                     this.refreshGitStatus();
                 } else if (panel === 'explorer') {
                     gitSection.style.display = 'none';
                     fileTreeSection.style.display = 'flex';
+                    document.getElementById('searchPanelSection').style.display = 'none';
+                } else if (panel === 'search') {
+                    gitSection.style.display = 'none';
+                    fileTreeSection.style.display = 'none';
+                    document.getElementById('searchPanelSection').style.display = 'flex';
                 }
             };
         });

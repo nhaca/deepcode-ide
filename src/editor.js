@@ -199,7 +199,7 @@ class EditorManager {
         return langs[ext] || 'plaintext';
     }
 
-    async openFile(filePath, content) {
+    async openFile(filePath, content, lineNumber) {
         if (!this.ready) await this.init();
 
         if (this.models.has(filePath)) {
@@ -215,6 +215,12 @@ class EditorManager {
             if (statusLang) {
                 statusLang.textContent = language.charAt(0).toUpperCase() + language.slice(1);
             }
+        }
+
+        if (lineNumber && lineNumber > 0) {
+            this.editor.revealLineInCenter(lineNumber);
+            this.editor.setPosition({ lineNumber, column: 1 });
+            this.editor.focus();
         }
 
         this.activeModel = filePath;
