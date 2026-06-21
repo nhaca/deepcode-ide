@@ -140,6 +140,7 @@ body {
     width: var(--sidebar-width);
     min-width: 180px;
     max-width: 500px;
+    flex-shrink: 0;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     display: flex;
@@ -152,6 +153,8 @@ body {
 
 /* Activity Bar */
 .activity-bar {
+    width: var(--activity-bar-width);
+    flex-shrink: 0;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     display: flex;
