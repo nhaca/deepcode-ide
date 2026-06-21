@@ -203,11 +203,11 @@ class AtxpAPI {
             }
 
             lastError = await res.json().catch(() => ({}));
-            const errMsg = lastError?.error?.message || `API error: ${res.status}`;
+            console.log('ATXP Error:', res.status, JSON.stringify(lastError));
             if (res.status !== 401 && res.status !== 403) break;
         }
 
-        throw new Error(lastError?.error?.message || 'DeepCode Server 2 API error');
+        throw new Error(lastError?.error?.message || lastError?.error || `DeepCode Server 2 API error: ${JSON.stringify(lastError)}`);
     }
 
     async getModels() {
