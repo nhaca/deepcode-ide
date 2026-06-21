@@ -653,11 +653,22 @@ class DeepCodeIDE {
             if (!newName || newName === oldName) return;
             const newPath = await window.api.fs.rename(targetPath, newName);
             if (newPath) {
-                const openFile = window.state.get('activeFile');
-                if (openFile && openFile.path === targetPath) {
-                    openFile.path = newPath;
-                    openFile.name = newName;
+                const openFiles = window.state.get('openFiles') || [];
+                const updated = openFiles.map(f => {
+                    if (f.path === targetPath) return { ...f, path: newPath, name: newName };
+                    if (f.path.startsWith(targetPath + '\\') || f.path.startsWith(targetPath + '/')) {
+                        return { ...f, path: f.path.replace(targetPath, newPath) };
+                    }
+                    return f;
+                });
+                window.state.set('openFiles', updated);
+                const activeFile = window.state.get('activeFile');
+                if (activeFile?.path === targetPath) {
+                    window.state.set('activeFile', { ...activeFile, path: newPath, name: newName });
                 }
+            }
+            await this.loadFileTree(this.currentFolder);
+        }
             }
             await this.loadFileTree(this.currentFolder);
 
@@ -665,6 +676,16 @@ class DeepCodeIDE {
             const name = targetPath.split(/[\\/]/).pop();
             const confirmed = await this.customPrompt('Xóa', `Xóa "${name}"? Nhập "xóa" để xác nhận:`, '');
             if (confirmed !== 'xóa' && confirmed !== 'Xóa') return;
+            const openFiles = window.state.get('openFiles') || [];
+            const activeFile = window.state.get('activeFile');
+            const isOpen = openFiles.some(f => f.path === targetPath);
+            if (isOpen) {
+                const remaining = openFiles.filter(f => f.path !== targetPath);
+                window.state.set('openFiles', remaining);
+                if (activeFile?.path === targetPath) {
+                    window.state.set('activeFile', remaining.length > 0 ? remaining[remaining.length - 1] : null);
+                }
+            }
             await window.api.fs.deleteFile(targetPath);
             await this.loadFileTree(this.currentFolder);
         }
