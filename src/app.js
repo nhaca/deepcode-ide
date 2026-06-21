@@ -727,9 +727,6 @@ class DeepCodeIDE {
                 }
             }
             await this.loadFileTree(this.currentFolder);
-        }
-            }
-            await this.loadFileTree(this.currentFolder);
 
         } else if (action === 'delete') {
             const name = targetPath.split(/[\\/]/).pop();
