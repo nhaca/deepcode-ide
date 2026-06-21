@@ -12,6 +12,49 @@ class DeepCodeIDE {
         this.init();
     }
 
+    customPrompt(title, desc, defaultVal = '') {
+        return new Promise((resolve) => {
+            const overlay = document.getElementById('inputModal');
+            document.getElementById('inputModalTitle').textContent = title;
+            document.getElementById('inputModalDesc').textContent = desc;
+            const field = document.getElementById('inputModalField');
+            field.value = defaultVal;
+            overlay.style.display = 'flex';
+            field.focus();
+            field.select();
+
+            const cleanup = () => { overlay.style.display = 'none'; };
+
+            document.getElementById('inputModalOk').onclick = () => {
+                cleanup();
+                resolve(field.value.trim() || null);
+            };
+            document.getElementById('inputModalCancel').onclick = () => {
+                cleanup();
+                resolve(null);
+            };
+            field.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    cleanup();
+                    resolve(field.value.trim() || null);
+                }
+                if (e.key === 'Escape') {
+                    cleanup();
+                    resolve(null);
+                }
+            };
+        });
+    }
+
+    showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast ' + type;
+        toast.style.display = 'block';
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 2500);
+    }
+
     init() {
         this.setupTitleBar();
         this.setupActivityBar();
@@ -429,7 +472,10 @@ class DeepCodeIDE {
     }
 
     async connectGitLab() {
-        const token = prompt('Nhập GitLab Personal Access Token:\nTạo tại: https://gitlab.com/-/user_settings/personal_access_tokens\nCần quyền: api, read_repository');
+        const token = await this.customPrompt(
+            'Kết nối GitLab',
+            'Nhập GitLab Personal Access Token.\nTạo tại: gitlab.com/-/user_settings/personal_access_tokens\nCần quyền: api, read_repository'
+        );
         if (!token) return;
         try {
             const res = await fetch('https://gitlab.com/api/v4/user', {
@@ -440,12 +486,12 @@ class DeepCodeIDE {
                 const user = await res.json();
                 localStorage.setItem('deepcode-gitlab-user', JSON.stringify(user));
                 this.updateConnectionStatus();
-                alert('Kết nối GitLab thành công! +100 tokens đã được thêm.');
+                this.showToast('Kết nối GitLab thành công! +100 tokens đã được thêm.');
             } else {
-                alert('Token không hợp lệ. Vui lòng thử lại.');
+                this.showToast('Token không hợp lệ. Vui lòng thử lại.', 'error');
             }
         } catch (e) {
-            alert('Lỗi kết nối GitLab: ' + e.message);
+            this.showToast('Lỗi kết nối GitLab: ' + e.message, 'error');
         }
     }
 
@@ -601,14 +647,14 @@ class DeepCodeIDE {
         const parentDir = isDir ? targetPath : targetPath.replace(/[\\/][^\\/]+$/, '');
 
         if (action === 'newFile') {
-            const name = prompt('Tên file mới:');
+            const name = await this.customPrompt('Tạo file mới', 'Nhập tên file:');
             if (!name) return;
             const fullPath = parentDir + '\\' + name;
             await window.api.fs.writeFile(fullPath, '');
             await this.loadFileTree(this.currentFolder);
 
         } else if (action === 'newFolder') {
-            const name = prompt('Tên thư mục mới:');
+            const name = await this.customPrompt('Tạo thư mục mới', 'Nhập tên thư mục:');
             if (!name) return;
             const fullPath = parentDir + '\\' + name;
             await window.api.fs.mkdir(fullPath);
@@ -616,7 +662,7 @@ class DeepCodeIDE {
 
         } else if (action === 'rename') {
             const oldName = targetPath.split(/[\\/]/).pop();
-            const newName = prompt('Đổi tên:', oldName);
+            const newName = await this.customPrompt('Đổi tên', 'Nhập tên mới:', oldName);
             if (!newName || newName === oldName) return;
             const newPath = await window.api.fs.rename(targetPath, newName);
             if (newPath) {
@@ -630,7 +676,8 @@ class DeepCodeIDE {
 
         } else if (action === 'delete') {
             const name = targetPath.split(/[\\/]/).pop();
-            if (!confirm(`Xóa "${name}"?`)) return;
+            const confirmed = await this.customPrompt('Xóa', `Xóa "${name}"? Nhập "xóa" để xác nhận:`, '');
+            if (confirmed !== 'xóa' && confirmed !== 'Xóa') return;
             await window.api.fs.deleteFile(targetPath);
             await this.loadFileTree(this.currentFolder);
         }
