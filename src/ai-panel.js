@@ -1039,11 +1039,12 @@ class AIPanel {
     }
 
     parseFileOperations(content) {
-        const regex = /<file_operation\s+path="([^"]+)"\s+action="(create|edit|delete)">([\s\S]*?)<\/file_operation>/g;
+        const regex = /<file_operation\s+path="([^"]+)"\s+action="(create|edit|modify|delete)">([\s\S]*?)<\/file_operation>/g;
         const ops = [];
         let match;
         while ((match = regex.exec(content)) !== null) {
-            ops.push({ path: match[1], action: match[2], content: match[3].trim() });
+            const action = match[2] === 'modify' ? 'edit' : match[2];
+            ops.push({ path: match[1], action, content: match[3].trim() });
         }
         return ops;
     }
@@ -1213,6 +1214,13 @@ class AIPanel {
 
         if (operations.length > 0 && window.ide?.currentFolder) {
             await window.ide.loadFileTree(window.ide.currentFolder);
+            const lastOp = operations[operations.length - 1];
+            if (lastOp && lastOp.action !== 'delete') {
+                const workspaceRoot = this.state.get('workspaceRoot');
+                const fullPath = workspaceRoot + '\\' + lastOp.path;
+                const fileName = lastOp.path.split(/[\\/]/).pop();
+                window.ide.openFile(fullPath, fileName);
+            }
         }
     }
 
@@ -1335,6 +1343,8 @@ class AIPanel {
     formatContentLight(text) {
         if (!text) return '';
         let html = text;
+        html = html.replace(/<file_operation\s+path="[^"]*"\s+action="[^"]*">[\s\S]*?<\/file_operation>/g, '');
+        html = html.replace(/<terminal_command>[\s\S]*?<\/terminal_command>/g, '');
         html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
         html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
@@ -1356,7 +1366,7 @@ class AIPanel {
             return `__THINK_${id}__`;
         });
 
-        html = html.replace(/<file_operation\s+path="[^"]*"\s+action="(create|edit|delete)">[\s\S]*?<\/file_operation>/g, '');
+        html = html.replace(/<file_operation\s+path="[^"]*"\s+action="(create|edit|modify|delete)">[\s\S]*?<\/file_operation>/g, '');
         html = html.replace(/<terminal_command>[\s\S]*?<\/terminal_command>/g, '');
 
         html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
