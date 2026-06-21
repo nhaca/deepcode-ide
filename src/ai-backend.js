@@ -164,6 +164,7 @@ class AtxpAPI {
     }
 
     async chat(model, messages, stream = false) {
+        console.log('ATXP chat model:', model);
         const body = {
             model,
             messages,
