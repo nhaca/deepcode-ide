@@ -1102,17 +1102,21 @@ class AIPanel {
         const workspaceRoot = this.state.get('workspaceRoot');
         for (const cmd of commands) {
             this.addMessage(`$ ${cmd}`, 'system');
+            window.ide?.logToOutput?.(`Terminal: ${cmd}`, 'info');
             try {
                 const tm = window.ide?.terminalManager || window.terminalManager;
                 if (tm) {
                     const termId = await tm.create(workspaceRoot || undefined);
                     await tm.write(termId, cmd + '\n');
                     this.addMessage(`[Đã chạy: ${cmd}]`, 'system');
+                    window.ide?.logToOutput?.(`Đã chạy: ${cmd}`, 'success');
                 } else {
                     this.addMessage('[Terminal manager không khả dụng. Hãy mở terminal trước.]', 'system');
+                    window.ide?.logToOutput?.(`Terminal không khả dụng`, 'error');
                 }
             } catch (e) {
                 this.addMessage(`[Lỗi khi chạy lệnh: ${e.message}]`, 'system');
+                window.ide?.logToOutput?.(`Lỗi: ${e.message}`, 'error');
             }
         }
     }
@@ -1188,18 +1192,22 @@ class AIPanel {
                 if (op.action === 'create' && isDir) {
                     await window.api.fs.mkdir(fullPath);
                     this.addMessage(`[Đã tạo thư mục: ${op.path}]`, 'system');
+                    window.ide?.logToOutput?.(`Tạo thư mục: ${op.path}`, 'success');
                 } else if (op.action === 'create' || op.action === 'edit') {
                     await window.api.fs.writeFile(fullPath, op.content);
                     this._recordPassport(op.action, op.path, op.content);
                     this._calibrateStyle(op.content);
                     this.addMessage(`[Đã ${op.action === 'create' ? 'tạo' : 'sửa'} file: ${op.path}]`, 'system');
+                    window.ide?.logToOutput?.(`${op.action === 'create' ? 'Tạo' : 'Sửa'} file: ${op.path}`, 'success');
                 } else if (op.action === 'delete') {
                     await window.api.fs.deleteFile(fullPath);
                     this._recordPassport('delete', op.path, '');
                     this.addMessage(`[Đã xóa file: ${op.path}]`, 'system');
+                    window.ide?.logToOutput?.(`Xóa file: ${op.path}`, 'warn');
                 }
             } catch (e) {
                 this.addMessage(`[Lỗi khi ${op.action} ${op.path}: ${e.message}]`, 'system');
+                window.ide?.logToOutput?.(`Lỗi ${op.action} ${op.path}: ${e.message}`, 'error');
             }
         }
 

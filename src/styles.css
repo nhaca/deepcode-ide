@@ -2720,3 +2720,8 @@ body {
 .toast.error { border-color: #f87171; }
 @keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
+/* Bottom panels */
+.bottom-panel-content { font-size: 12px; }
+.problem-item:hover { background: #1e1a2e; }
+.problem-item { transition: background 0.1s; }
+

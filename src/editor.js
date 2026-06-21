@@ -151,6 +151,8 @@ class EditorManager {
                 );
                 window.state.set('openFiles', files);
             }
+            clearTimeout(this._problemTimer);
+            this._problemTimer = setTimeout(() => window.ide?.updateProblems?.(), 500);
         });
 
         this.editor.onDidChangeCursorPosition((e) => {
