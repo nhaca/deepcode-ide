@@ -220,16 +220,20 @@ ipcMain.handle('terminal:create', (event, { cwd }) => {
         windowsHide: true,
     });
 
+    const safeSend = (channel, data) => {
+        try { if (!event.sender.isDestroyed()) event.sender.send(channel, data); } catch {}
+    };
+
     term.stdout.on('data', (data) => {
-        event.sender.send(`terminal:data:${id}`, data.toString());
+        safeSend(`terminal:data:${id}`, data.toString());
     });
 
     term.stderr.on('data', (data) => {
-        event.sender.send(`terminal:data:${id}`, data.toString());
+        safeSend(`terminal:data:${id}`, data.toString());
     });
 
     term.on('exit', (code) => {
-        event.sender.send(`terminal:exit:${id}`, code);
+        safeSend(`terminal:exit:${id}`, code);
         terminals.delete(id);
     });
 
