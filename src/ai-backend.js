@@ -147,7 +147,7 @@ class DeepCodeAPI {
 // ========== ATPX API Client ==========
 class AtxpAPI {
     constructor() {
-        this.baseUrl = 'https://accounts.atxp.ai';
+        this.baseUrl = 'https://llm.atxp.ai';
     }
 
     _getHeaders() {
