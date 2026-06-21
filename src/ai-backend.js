@@ -166,45 +166,78 @@ class AtxpAPI {
             stream,
         };
 
-        const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-            method: 'POST',
-            headers: this._getHeaders(),
-            body: JSON.stringify(body),
-        });
+        const accounts = [
+            { token: 'yag0uXh7o5dsHU9kv60Zb', accountId: 'atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
+            { token: '9nG86jG8LD2oI8Ok9Kx2h', accountId: 'atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
+            { token: 'YcoJiP29r0VLJrJYe2ABG', accountId: 'atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
+            { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
+        ];
 
-        if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.error?.message || `DeepCode Server 2 API error: ${res.status}`);
-        }
+        let lastError;
+        for (let i = 0; i < accounts.length; i++) {
+            const cfg = accounts[i];
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${cfg.token}`,
+                'x-account-id': cfg.accountId,
+            };
 
-        if (stream) {
-            const contentType = res.headers.get('content-type') || '';
-            if (!contentType.includes('text/event-stream') && !contentType.includes('text/plain')) {
+            const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+            });
+
+            if (res.ok) {
+                localStorage.setItem('deepcode-atxp-idx', String(i));
+                if (stream) {
+                    const contentType = res.headers.get('content-type') || '';
+                    if (!contentType.includes('text/event-stream') && !contentType.includes('text/plain')) {
+                        const data = await res.json();
+                        return { _nonStreaming: true, content: data.choices?.[0]?.message?.content || JSON.stringify(data) };
+                    }
+                    return res.body;
+                }
                 const data = await res.json();
-                return { _nonStreaming: true, content: data.choices?.[0]?.message?.content || JSON.stringify(data) };
+                return { content: data.choices?.[0]?.message?.content || '' };
             }
-            return res.body;
+
+            lastError = await res.json().catch(() => ({}));
+            const errMsg = lastError?.error?.message || `API error: ${res.status}`;
+            if (res.status !== 401 && res.status !== 403) break;
         }
 
-        const data = await res.json();
-        return { content: data.choices?.[0]?.message?.content || '' };
+        throw new Error(lastError?.error?.message || 'DeepCode Server 2 API error');
     }
 
     async getModels() {
-        const res = await fetch(`${this.baseUrl}/v1/models`, {
-            headers: this._getHeaders(),
-        });
+        const accounts = [
+            { token: 'yag0uXh7o5dsHU9kv60Zb', accountId: 'atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
+            { token: '9nG86jG8LD2oI8Ok9Kx2h', accountId: 'atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
+            { token: 'YcoJiP29r0VLJrJYe2ABG', accountId: 'atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
+            { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
+        ];
 
-        if (!res.ok) return [];
+        for (let i = 0; i < accounts.length; i++) {
+            const cfg = accounts[i];
+            const res = await fetch(`${this.baseUrl}/v1/models`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${cfg.token}`,
+                    'x-account-id': cfg.accountId,
+                },
+            });
 
-        const data = await res.json();
-        const nonChatPatterns = /image|embed|tts|whisper|dall-e|stable-diffusion|midjourney|audio|speech|moderation|ranker|classifier|tokenizer|vision|ocr|video|music|suno|fal-|luma|kling|runway|pika|ideogram|recraft|baseten|assembly|inworld/i;
-        return (data.data || [])
-            .filter(m => !nonChatPatterns.test(m.id))
-            .map(m => ({
-                id: m.id,
-                name: m.id,
-            }));
+            if (res.ok) {
+                localStorage.setItem('deepcode-atxp-idx', String(i));
+                const data = await res.json();
+                const nonChatPatterns = /image|embed|tts|whisper|dall-e|stable-diffusion|midjourney|audio|speech|moderation|ranker|classifier|tokenizer|vision|ocr|video|music|suno|fal-|luma|kling|runway|pika|ideogram|recraft|baseten|assembly|inworld/i;
+                return (data.data || [])
+                    .filter(m => !nonChatPatterns.test(m.id))
+                    .map(m => ({ id: m.id, name: m.id }));
+            }
+        }
+        return [];
     }
 
     isLoggedIn() {
