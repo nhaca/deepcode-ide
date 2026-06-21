@@ -903,12 +903,13 @@ class AIPanel {
                                         || '';
                                     if (delta) {
                                         fullContent += delta;
-                                        this.updateMessage(responseEl, fullContent);
+                                        this.updateMessage(responseEl, fullContent, true);
                                     }
                                 } catch {}
                             }
                         }
                     }
+                    this.updateMessage(responseEl, fullContent, false);
                 }
 
                 const fileOps = this.parseFileOperations(fullContent);
@@ -1227,11 +1228,32 @@ class AIPanel {
         return div;
     }
 
-    updateMessage(el, content) {
-        const contentEl = el.querySelector('.ai-message-content');
-        if (contentEl) contentEl.innerHTML = this.formatContent(content);
-        const messages = document.querySelector('#aiColumn #aiMessages') || document.getElementById('aiMessages');
-        if (messages) messages.scrollTop = messages.scrollHeight;
+    updateMessage(el, content, streaming = false) {
+        if (streaming) {
+            if (!el._lastUpdate || Date.now() - el._lastUpdate > 50) {
+                el._lastUpdate = Date.now();
+                const contentEl = el.querySelector('.ai-message-content');
+                if (contentEl) contentEl.innerHTML = this.formatContentLight(content);
+                const messages = document.querySelector('#aiColumn #aiMessages') || document.getElementById('aiMessages');
+                if (messages) messages.scrollTop = messages.scrollHeight;
+            }
+        } else {
+            const contentEl = el.querySelector('.ai-message-content');
+            if (contentEl) contentEl.innerHTML = this.formatContent(content);
+            const messages = document.querySelector('#aiColumn #aiMessages') || document.getElementById('aiMessages');
+            if (messages) messages.scrollTop = messages.scrollHeight;
+        }
+    }
+
+    formatContentLight(text) {
+        if (!text) return '';
+        let html = text;
+        html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\n/g, '<br>');
+        return html;
     }
 
     formatContent(text) {
