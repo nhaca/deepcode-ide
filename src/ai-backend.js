@@ -164,9 +164,10 @@ class AtxpAPI {
     }
 
     async chat(model, messages, stream = false) {
-        console.log('ATXP chat model:', model);
+        const apiModel = model.includes('/') ? model.split('/').pop() : model;
+        console.log('ATXP chat model:', model, '-> API:', apiModel);
         const body = {
-            model,
+            model: apiModel,
             messages,
             stream,
         };
