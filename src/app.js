@@ -142,6 +142,10 @@ class DeepCodeIDE {
             window.state.set('workspaceRoot', folderPath);
             await this.loadFileTree(folderPath);
             this.refreshGitStatus();
+            if (this.terminalManager) {
+                this.terminalManager.killAll();
+                this.terminalManager.create(folderPath);
+            }
         }
     }
 

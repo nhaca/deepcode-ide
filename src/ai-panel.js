@@ -1166,6 +1166,7 @@ class AIPanel {
 
         for (const op of operations) {
             const fullPath = workspaceRoot + '\\' + op.path;
+            const isDir = !op.path.includes('.') || op.path.endsWith('/');
 
             if (op.action === 'edit') {
                 const existing = await window.api.fs.readFile(fullPath);
@@ -1184,7 +1185,10 @@ class AIPanel {
             }
 
             try {
-                if (op.action === 'create' || op.action === 'edit') {
+                if (op.action === 'create' && isDir) {
+                    await window.api.fs.mkdir(fullPath);
+                    this.addMessage(`[Đã tạo thư mục: ${op.path}]`, 'system');
+                } else if (op.action === 'create' || op.action === 'edit') {
                     await window.api.fs.writeFile(fullPath, op.content);
                     this._recordPassport(op.action, op.path, op.content);
                     this._calibrateStyle(op.content);
@@ -1195,7 +1199,7 @@ class AIPanel {
                     this.addMessage(`[Đã xóa file: ${op.path}]`, 'system');
                 }
             } catch (e) {
-                this.addMessage(`[Lỗi khi ${op.action} file ${op.path}: ${e.message}]`, 'system');
+                this.addMessage(`[Lỗi khi ${op.action} ${op.path}: ${e.message}]`, 'system');
             }
         }
 
