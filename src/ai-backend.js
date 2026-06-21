@@ -174,7 +174,7 @@ class AtxpAPI {
 
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.error?.message || `ATPX API error: ${res.status}`);
+            throw new Error(data.error?.message || `DeepCode Server 2 API error: ${res.status}`);
         }
 
         if (stream) {
@@ -248,7 +248,7 @@ class UnifiedClient {
 
     async getMe() {
         if (getProvider() === 'atxp') {
-            return { name: 'ATPX User', provider: 'atxp' };
+            return { name: 'DeepCode Server 2 User', provider: 'atxp' };
         }
         return await this.deepcode.getMe();
     }
