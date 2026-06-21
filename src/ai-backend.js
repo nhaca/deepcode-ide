@@ -198,10 +198,13 @@ class AtxpAPI {
         if (!res.ok) return [];
 
         const data = await res.json();
-        return (data.data || []).map(m => ({
-            id: m.id,
-            name: m.id,
-        }));
+        const nonChatPatterns = /image|embed|tts|whisper|dall-e|stable-diffusion|midjourney|audio|speech|moderation|ranker|classifier|tokenizer|vision|ocr|video|music|suno|fal-|luma|kling|runway|pika|ideogram|recraft|baseten|assembly|inworld/i;
+        return (data.data || [])
+            .filter(m => !nonChatPatterns.test(m.id))
+            .map(m => ({
+                id: m.id,
+                name: m.id,
+            }));
     }
 
     isLoggedIn() {
