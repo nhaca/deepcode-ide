@@ -1122,6 +1122,10 @@ class AIPanel {
                 this.addMessage(`[Lỗi khi ${op.action} file ${op.path}: ${e.message}]`, 'system');
             }
         }
+
+        if (operations.length > 0 && window.ide?.currentFolder) {
+            await window.ide.loadFileTree(window.ide.currentFolder);
+        }
     }
 
     _saveCurrentSession() {
@@ -1242,6 +1246,9 @@ class AIPanel {
             placeholders.push(`<details class="ai-thinking"><summary>Suy nghĩ...</summary><div class="ai-thinking-content">${trimmed.replace(/\n/g, '<br>')}</div></details>`);
             return `__THINK_${id}__`;
         });
+
+        html = html.replace(/<file_operation\s+path="[^"]*"\s+action="(create|edit|delete)">[\s\S]*?<\/file_operation>/g, '');
+        html = html.replace(/<terminal_command>[\s\S]*?<\/terminal_command>/g, '');
 
         html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
