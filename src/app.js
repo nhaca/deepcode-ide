@@ -417,6 +417,13 @@ class DeepCodeIDE {
         if (atxpKeyRow) atxpKeyRow.style.display = savedProvider === 'atxp' ? 'flex' : 'none';
         if (atxpAccountIdRow) atxpAccountIdRow.style.display = savedProvider === 'atxp' ? 'flex' : 'none';
 
+        const savedModel = localStorage.getItem('deepcode-default-model');
+        const savedCtx = localStorage.getItem('deepcode-context-limit');
+        const modelSelect = document.getElementById('settingsDefaultModel');
+        const ctxSelect = document.getElementById('settingsContextLimit');
+        if (modelSelect && savedModel) modelSelect.value = savedModel;
+        if (ctxSelect && savedCtx) ctxSelect.value = savedCtx;
+
         const savedAtxpKey = localStorage.getItem('deepcode-atxp-token') || '';
         const savedAtxpAccountId = localStorage.getItem('deepcode-atxp-account-id') || '';
         const atxpKeyInput = document.getElementById('settingsAtxpKey');
@@ -428,6 +435,8 @@ class DeepCodeIDE {
             const isAtxp = e.target.value === 'atxp';
             if (atxpKeyRow) atxpKeyRow.style.display = isAtxp ? 'flex' : 'none';
             if (atxpAccountIdRow) atxpAccountIdRow.style.display = isAtxp ? 'flex' : 'none';
+            localStorage.setItem('deepcode-provider', e.target.value);
+            window._aiPanel?.loadModels?.();
         });
 
         document.getElementById('settingsSaveBtn')?.addEventListener('click', () => {
@@ -442,6 +451,11 @@ class DeepCodeIDE {
             localStorage.setItem('deepcode-provider', provider);
             if (atxpKey) localStorage.setItem('deepcode-atxp-token', atxpKey);
             if (atxpAccountId) localStorage.setItem('deepcode-atxp-account-id', atxpAccountId);
+
+            const aiDropdown = document.getElementById('aiModelDropdown');
+            if (aiDropdown && model && aiDropdown.querySelector(`option[value="${model}"]`)) {
+                aiDropdown.value = model;
+            }
 
             document.getElementById('settingsModal').style.display = 'none';
         });

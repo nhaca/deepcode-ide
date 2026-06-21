@@ -294,7 +294,7 @@ class AIPanel {
         const percent = this.credits.creditsPerDay === 999999 ? 0 : (this.credits.creditsUsed / this.credits.creditsPerDay) * 100;
         document.getElementById('creditsBarFill').style.width = `${Math.min(100, percent)}%`;
 
-        const maxCtx = this.credits.contextLimits?.maxContext || 4096;
+        const maxCtx = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
         const usedCtx = this._estimateTokens(this.history);
         const ctxPercent = Math.min(100, (usedCtx / maxCtx) * 100);
         const ctxLabel = maxCtx >= 1000 ? `${Math.round(maxCtx / 1000)}K` : maxCtx;
@@ -317,6 +317,10 @@ class AIPanel {
                 dropdown.innerHTML = models.map(m =>
                     `<option value="${m.id}">${m.name || m.id}</option>`
                 ).join('');
+                const savedModel = localStorage.getItem('deepcode-default-model');
+                if (savedModel && dropdown.querySelector(`option[value="${savedModel}"]`)) {
+                    dropdown.value = savedModel;
+                }
             }
         } catch (e) {
             console.error('Failed to load models:', e);
@@ -350,6 +354,10 @@ class AIPanel {
 
     setupEvents() {
         this.attachedFiles = [];
+
+        document.getElementById('aiModelDropdown')?.addEventListener('change', (e) => {
+            localStorage.setItem('deepcode-default-model', e.target.value);
+        });
 
         document.addEventListener('click', (e) => {
             if (e.target.closest('#aiSendBtn') || e.target.closest('.ai-send-btn')) {
@@ -838,7 +846,7 @@ class AIPanel {
             systemPrompt += ' ANTI-SYCOPHANCY: Nếu người dùng đề xuất giải pháp có vấn đề, hãy challenge một cách lịch sự. Chỉ ra rủi ro, đề xuất thay thế tốt hơn. KHÔNG luôn đồng ý.';
             systemPrompt += ` STYLE PROFILE: Phong cách coding của user: ${this._getStyleHint()}.`;
 
-            const maxContext = this.credits?.contextLimits?.maxContext || 4096;
+            const maxContext = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
             const tier = this.credits?.tier || 'free';
             const resetLimit = tier === 'premium' || tier === 'business' ? Infinity : (tier === 'pro' ? 30 : 5);
             const resetCount = parseInt(localStorage.getItem('deepcode-reset-count') || '0');
@@ -955,7 +963,7 @@ class AIPanel {
 
     updateContextDisplay() {
         if (!this.credits) return;
-        const maxCtx = this.credits.contextLimits?.maxContext || 4096;
+        const maxCtx = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
         const usedCtx = this._estimateTokens(this.history);
         const ctxPercent = Math.min(100, (usedCtx / maxCtx) * 100);
         const ctxLabel = maxCtx >= 1000 ? `${Math.round(maxCtx / 1000)}K` : maxCtx;
@@ -1273,7 +1281,7 @@ class AIPanel {
             return;
         }
         if (message === '/token') {
-            const maxCtx = this.credits?.contextLimits?.maxContext || 4096;
+            const maxCtx = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
             const usedCtx = this._estimateTokens(this.history);
             const tier = this.credits?.tier || 'free';
             this.addMessage(`## Thống kê tokens\n- **Tier:** ${tier}\n- **Context đã dùng:** ${usedCtx} / ${maxCtx} tokens\n- **Tin nhắn trong lịch sử:** ${this.history.length}\n- **File đính kèm:** ${this.attachedFiles?.length || 0}`, 'assistant');
