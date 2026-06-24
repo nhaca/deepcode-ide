@@ -135,6 +135,11 @@ async function refreshSessionToken() {
         if (data.success && data.sessionToken && data.userSecret) {
             saveUserSecret(data.userSecret);
             saveSessionToken(data.sessionToken, data.sessionExpiresAt);
+            // Also save binding signature for fallback
+            const localBinding = loadDeviceBinding();
+            localBinding.bindingSignature = data.bindingSignature;
+            localBinding.bindingTimestamp = data.bindingTimestamp;
+            saveDeviceBinding(localBinding);
             return true;
         }
     } catch {}
@@ -158,13 +163,14 @@ function saveApiKey(data) {
 }
 
 // Generate API key via gateway
-async function generateApiKey(email, tier = 'free') {
+async function generateApiKey(email, tier = 'free', provider = 'unknown') {
     try {
         const res = await fetch(`${GATEWAY_URL}/api-keys`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Email': email,
+                'X-User-Provider': provider,
             },
             body: JSON.stringify({ email, tier }),
         });
@@ -180,13 +186,13 @@ async function generateApiKey(email, tier = 'free') {
 }
 
 // Get or create API key
-async function getOrCreateApiKey(email, tier = 'free') {
+async function getOrCreateApiKey(email, tier = 'free', provider = 'unknown') {
     const existing = loadApiKey();
     if (existing && (!email || existing.email === email)) {
         return existing.apiKey;
     }
     // Generate new key for this user
-    return await generateApiKey(email || 'anonymous@deepcode.dev', tier);
+    return await generateApiKey(email || 'anonymous@deepcode.dev', tier, provider);
 }
 
 // Auto-generate API key on startup (anonymous free user)
@@ -295,15 +301,12 @@ async function gatewaySign(body) {
 function getBindingSignature() {
     const binding = loadDeviceBinding();
     if (!binding.primaryEmail) return {};
-    const message = `${GATEWAY_DEVICE_ID}:${binding.primaryEmail}:${binding.provider || ''}:${binding.loginIp || ''}:${binding.loginTime || ''}`;
-    const userSecret = loadUserSecret();
-    if (!userSecret) return {};
-    const sig = crypto.createHmac('sha256', userSecret).update(message).digest('hex');
     const headers = {
-        'X-Binding-Signature': sig,
-        'X-Binding-Timestamp': (binding.loginTime || Date.now()).toString(),
+        'X-Binding-Timestamp': (binding.bindingTimestamp || binding.loginTime || Date.now()).toString(),
         'X-Login-IP': binding.loginIp || '',
     };
+    // Use stored binding signature from gateway (NOT locally generated)
+    if (binding.bindingSignature) headers['X-Binding-Signature'] = binding.bindingSignature;
     // Add session token if available
     const sessionToken = loadSessionToken();
     if (sessionToken) headers['X-Session-Token'] = sessionToken;
@@ -1355,7 +1358,7 @@ ipcMain.handle('device:bind', async (event, { email, provider }) => {
     setCurrentUser(email, provider, getTierData().tier);
 
     // Generate API key for this user
-    const apiKey = await getOrCreateApiKey(email, getTierData().tier);
+    const apiKey = await getOrCreateApiKey(email, getTierData().tier, provider);
     if (apiKey) currentApiKey = apiKey;
 
     // Call gateway /bind-device to get sessionToken + userSecret
@@ -1379,6 +1382,11 @@ ipcMain.handle('device:bind', async (event, { email, provider }) => {
             // Save encrypted secrets locally
             if (data.userSecret) saveUserSecret(data.userSecret);
             if (data.sessionToken && data.sessionExpiresAt) saveSessionToken(data.sessionToken, data.sessionExpiresAt);
+            // Save binding signature from gateway for fallback
+            const localBinding = loadDeviceBinding();
+            localBinding.bindingSignature = data.bindingSignature;
+            localBinding.bindingTimestamp = data.bindingTimestamp;
+            saveDeviceBinding(localBinding);
             return {
                 ...result,
                 apiKey,
