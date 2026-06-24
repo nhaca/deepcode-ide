@@ -676,6 +676,21 @@ body {
     font-size: 12px;
 }
 
+.git-init-btn {
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.git-init-btn:hover {
+    background: var(--accent-hover);
+}
+
 .git-change-item {
     display: flex;
     align-items: center;
@@ -825,6 +840,134 @@ body {
 .git-branch-item.active {
     color: var(--accent-green);
     background: var(--accent-green-bg);
+}
+
+.git-sync-box {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.git-sync-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.git-sync-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--accent);
+}
+
+.git-sync-status {
+    font-size: 11px;
+    color: var(--accent-green);
+    min-height: 16px;
+    padding: 2px 0;
+}
+
+.git-remote-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.git-remote-url {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+}
+
+.git-remote-form {
+    display: flex;
+    gap: 6px;
+    padding-top: 6px;
+}
+
+.git-input {
+    flex: 1;
+    padding: 5px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 11px;
+    outline: none;
+}
+
+.git-input:focus {
+    border-color: var(--accent);
+}
+
+.git-github-connected {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    font-size: 12px;
+    color: var(--accent-green);
+}
+
+.git-github-connected svg {
+    flex-shrink: 0;
+}
+
+.git-action-btn.primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 5px 12px;
+}
+
+.git-action-btn.primary:hover {
+    background: var(--accent-hover);
+}
+
+.git-link {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.git-link:hover {
+    color: var(--accent-hover);
+}
+
+.git-device-flow {
+    padding: 4px 0;
+}
+
+.git-device-code {
+    font-family: monospace;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--accent);
+    background: var(--bg-tertiary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px dashed var(--accent);
+    cursor: pointer;
+}
+
+.git-device-code:hover {
+    background: var(--bg-hover);
 }
 
 /* Search Panel */
@@ -1155,18 +1298,107 @@ body {
     animation: fadeIn 0.3s ease;
 }
 
+.ai-message.user {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .ai-message.user .ai-message-content {
-    background: var(--bg-tertiary);
-    border-radius: 8px;
-    padding: 12px;
-    margin-left: 40px;
+    background: var(--accent-purple, #7c5cfc);
+    color: white;
+    border-radius: 16px 16px 4px 16px;
+    padding: 8px 14px;
+    max-width: 70%;
+    width: fit-content;
+    margin-left: auto;
+    word-wrap: break-word;
+}
+
+.ai-message.assistant {
+    max-width: 85%;
+}
+
+.ai-message.assistant .ai-msg-header {
+    margin-bottom: 4px;
 }
 
 .ai-message.assistant .ai-message-content {
-    background: var(--bg-primary);
+    background: var(--bg-secondary);
+    border-radius: 4px 16px 16px 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.ai-msg-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.ai-avatar {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.ai-model-name {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.ai-msg-footer {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.ai-message.assistant:hover .ai-msg-footer {
+    opacity: 1;
+}
+
+.ai-msg-action {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: all 0.15s;
+}
+
+.ai-msg-action:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.system-msg {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
     border-radius: 8px;
-    padding: 12px;
-    margin-right: 40px;
+    padding: 10px 14px;
+    color: #f87171;
+    font-size: 12px;
+    text-align: center;
+    margin: 8px auto;
+    max-width: 90%;
+    line-height: 1.5;
 }
 
 .ai-message-content {
@@ -1955,6 +2187,87 @@ body {
     box-shadow: 0 4px 12px rgba(124, 92, 252, 0.3);
 }
 
+/* ===== Diff Preview in Permission Dialog (học từ OpenCode) ===== */
+.file-perm-dialog-wide {
+    min-width: 550px;
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.file-perm-item {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.file-perm-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.diff-preview {
+    margin-top: 8px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.diff-old, .diff-new {
+    padding: 4px 0;
+}
+
+.diff-old {
+    background: rgba(239, 68, 68, 0.06);
+}
+
+.diff-new {
+    background: rgba(34, 197, 94, 0.06);
+    border-top: 1px solid var(--border-color);
+}
+
+.diff-line {
+    display: block;
+    padding: 1px 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.diff-line.old {
+    color: #f87171;
+}
+
+.diff-line.new {
+    color: #4ade80;
+}
+
+.diff-truncated {
+    display: block;
+    padding: 4px 10px;
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 10px;
+}
+
+/* ===== Fork Button (session fork từ OpenCode) ===== */
+.fork-btn {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+}
+
+.fork-btn:hover {
+    opacity: 1;
+    color: var(--accent-purple) !important;
+}
+
 /* Auth Panel */
 .ai-auth-panel {
     display: flex;
@@ -2231,8 +2544,59 @@ body {
 }
 
 .ai-model-select select option {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     color: var(--text-primary);
+}
+
+.ai-auto-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+    border-radius: 4px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ai-thinking {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.ai-thinking-dots span {
+    animation: thinkingDot 1.4s infinite;
+    display: inline-block;
+}
+
+.ai-thinking-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.ai-thinking-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes thinkingDot {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+}
+
+.ai-thinking-content {
+    position: relative;
+    min-height: 20px;
+}
+
+.ai-thinking-pulse {
+    width: 60px;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    animation: thinkingPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes thinkingPulse {
+    0%, 100% { opacity: 0.4; width: 60px; }
+    50% { opacity: 0.8; width: 120px; }
 }
 
 /* Upgrade Modal */
@@ -2334,6 +2698,17 @@ body {
 .upgrade-tier.pro:hover {
     border-color: var(--accent-purple);
     box-shadow: 0 0 40px rgba(124, 92, 252, 0.15);
+}
+
+.upgrade-tier.premium {
+    border-color: #f59e0b;
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, var(--bg-tertiary) 100%);
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.1);
+}
+
+.upgrade-tier.premium:hover {
+    border-color: #f59e0b;
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.15);
 }
 
 .tier-badge {

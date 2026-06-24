@@ -25,16 +25,25 @@ class DeepCodeIDE {
 
             const cleanup = () => { overlay.style.display = 'none'; };
 
-            document.getElementById('inputModalOk').onclick = () => {
+            document.getElementById('inputModalOk').onclick = (e) => {
+                e.stopPropagation();
                 cleanup();
                 resolve(field.value.trim() || null);
             };
-            document.getElementById('inputModalCancel').onclick = () => {
+            document.getElementById('inputModalCancel').onclick = (e) => {
+                e.stopPropagation();
                 cleanup();
                 resolve(null);
             };
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    cleanup();
+                    resolve(null);
+                }
+            };
             field.onkeydown = (e) => {
                 if (e.key === 'Enter') {
+                    e.preventDefault();
                     cleanup();
                     resolve(field.value.trim() || null);
                 }
@@ -502,7 +511,29 @@ class DeepCodeIDE {
         const modelSelect = document.getElementById('settingsDefaultModel');
         const ctxSelect = document.getElementById('settingsContextLimit');
         if (modelSelect && savedModel) modelSelect.value = savedModel;
-        if (ctxSelect && savedCtx) ctxSelect.value = savedCtx;
+
+        const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+        const currentTier = window._aiPanel?.credits?.tier || 'free';
+        const maxCtx = tierMaxContext[currentTier] || 4096;
+        if (ctxSelect) {
+            Array.from(ctxSelect.options).forEach(opt => {
+                opt.disabled = parseInt(opt.value) > maxCtx;
+            });
+            if (savedCtx && parseInt(savedCtx) <= maxCtx) {
+                ctxSelect.value = savedCtx;
+            } else {
+                ctxSelect.value = String(maxCtx);
+            }
+        }
+
+        const filePermSelect = document.getElementById('settingsFilePerm');
+        const termPermSelect = document.getElementById('settingsTermPerm');
+        const readPermSelect = document.getElementById('settingsReadPerm');
+        const deletePermSelect = document.getElementById('settingsDeletePerm');
+        if (filePermSelect) filePermSelect.value = localStorage.getItem('deepcode-file-perm') || 'ask';
+        if (termPermSelect) termPermSelect.value = localStorage.getItem('deepcode-term-perm') || 'ask';
+        if (readPermSelect) readPermSelect.value = localStorage.getItem('deepcode-read-perm') || 'allow';
+        if (deletePermSelect) deletePermSelect.value = localStorage.getItem('deepcode-delete-perm') || 'ask';
 
         providerSelect?.addEventListener('change', (e) => {
             localStorage.setItem('deepcode-provider', e.target.value);
@@ -511,12 +542,27 @@ class DeepCodeIDE {
 
         document.getElementById('settingsSaveBtn')?.addEventListener('click', () => {
             const model = document.getElementById('settingsDefaultModel')?.value;
-            const ctx = document.getElementById('settingsContextLimit')?.value;
+            let ctx = document.getElementById('settingsContextLimit')?.value;
             const provider = providerSelect?.value || 'deepcode';
+
+            const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+            const currentTier = window._aiPanel?.credits?.tier || 'free';
+            const maxCtx = tierMaxContext[currentTier] || 4096;
+            if (ctx && parseInt(ctx) > maxCtx) ctx = String(maxCtx);
 
             if (model) localStorage.setItem('deepcode-default-model', model);
             if (ctx) localStorage.setItem('deepcode-context-limit', ctx);
             localStorage.setItem('deepcode-provider', provider);
+
+            const filePerm = document.getElementById('settingsFilePerm')?.value || 'ask';
+            const termPerm = document.getElementById('settingsTermPerm')?.value || 'ask';
+            const readPerm = document.getElementById('settingsReadPerm')?.value || 'allow';
+            const deletePerm = document.getElementById('settingsDeletePerm')?.value || 'ask';
+            localStorage.setItem('deepcode-file-perm', filePerm);
+            localStorage.setItem('deepcode-term-perm', termPerm);
+            localStorage.setItem('deepcode-read-perm', readPerm);
+            localStorage.setItem('deepcode-delete-perm', deletePerm);
+            window._aiPanel?.updateAutoBadge?.();
 
             const aiDropdown = document.getElementById('aiModelDropdown');
             if (aiDropdown && model && aiDropdown.querySelector(`option[value="${model}"]`)) {
@@ -575,6 +621,11 @@ class DeepCodeIDE {
         this.commandRegistry.register('file.save', 'File: Save', () => this.saveFile());
         this.commandRegistry.register('terminal.toggle', 'Terminal: Toggle Terminal', () => this.toggleTerminal());
         this.commandRegistry.register('git.refresh', 'Git: Refresh Status', () => this.refreshGitStatus());
+        this.commandRegistry.register('admin.open', 'Admin: Mở Admin Panel', async () => {
+            try {
+                await window.api.admin.open();
+            } catch (e) { console.error(e); }
+        });
         this.commandRegistry.register('view.explorer', 'View: Explorer', () => this.switchPanel('explorer'));
         this.commandRegistry.register('view.git', 'View: Source Control', () => this.switchPanel('git'));
     }
@@ -582,6 +633,29 @@ class DeepCodeIDE {
     switchPanel(panel) {
         const btn = document.querySelector(`.activity-btn[data-panel="${panel}"]`);
         if (btn) btn.click();
+    }
+
+    _showTokenInput(title) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999';
+            overlay.innerHTML = `
+                <div style="background:var(--bg-secondary,#1e1e2e);border:1px solid var(--border-color,#333);border-radius:12px;padding:24px;min-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+                    <div style="color:var(--text-primary,#fff);font-size:14px;margin-bottom:12px">${title}<br><span style="color:var(--text-muted,#888);font-size:12px">(Xem mã trong terminal/console)</span></div>
+                    <input type="text" id="_adminTokenInput" style="width:100%;padding:8px 12px;border:1px solid var(--border-color,#333);border-radius:6px;background:var(--bg-tertiary,#2a2a3a);color:var(--text-primary,#fff);font-size:14px;outline:none;box-sizing:border-box" placeholder="Nhập mã session..." autofocus />
+                    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+                        <button id="_adminTokenCancel" style="padding:6px 16px;border:1px solid var(--border-color,#333);border-radius:6px;background:transparent;color:var(--text-primary,#fff);cursor:pointer;font-size:13px">Hủy</button>
+                        <button id="_adminTokenOk" style="padding:6px 16px;border:none;border-radius:6px;background:var(--accent,#7c5cfc);color:white;cursor:pointer;font-size:13px">Mở Admin</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+            const input = overlay.querySelector('#_adminTokenInput');
+            const cleanup = (val) => { overlay.remove(); resolve(val); };
+            overlay.querySelector('#_adminTokenOk').onclick = () => cleanup(input.value.trim());
+            overlay.querySelector('#_adminTokenCancel').onclick = () => cleanup(null);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') cleanup(input.value.trim()); if (e.key === 'Escape') cleanup(null); });
+            setTimeout(() => input.focus(), 50);
+        });
     }
 
     async toggleTerminal() {
@@ -729,9 +803,6 @@ class DeepCodeIDE {
             await this.loadFileTree(this.currentFolder);
 
         } else if (action === 'delete') {
-            const name = targetPath.split(/[\\/]/).pop();
-            const confirmed = await this.customPrompt('Xóa', `Xóa "${name}"? Nhập "xóa" để xác nhận:`, '');
-            if (confirmed !== 'xóa' && confirmed !== 'Xóa') return;
             const openFiles = window.state.get('openFiles') || [];
             const activeFile = window.state.get('activeFile');
             const isOpen = openFiles.some(f => f.path === targetPath);

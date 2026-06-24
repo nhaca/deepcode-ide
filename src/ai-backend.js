@@ -7,21 +7,6 @@ function getApiUrl() {
     return localStorage.getItem('deepcode-api-url') || 'http://localhost:3000';
 }
 
-function getAtxpConfig() {
-    const accounts = [
-        { token: 'yag0uXh7o5dsHU9kv60Zb', accountId: 'atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
-        { token: '9nG86jG8LD2oI8Ok9Kx2h', accountId: 'atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
-        { token: 'YcoJiP29r0VLJrJYe2ABG', accountId: 'atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
-        { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
-    ];
-    const idx = parseInt(localStorage.getItem('deepcode-atxp-idx') || '0') % accounts.length;
-    const cfg = accounts[idx];
-    return {
-        ...cfg,
-        connectionString: `https://accounts.atxp.ai?connection_token=${cfg.token}&account_id=${cfg.accountId}`,
-    };
-}
-
 // ========== DeepCode API Client ==========
 class DeepCodeAPI {
     constructor() {
@@ -148,106 +133,138 @@ class DeepCodeAPI {
     }
 }
 
-// ========== ATPX API Client ==========
+// ========== ATXP API Client (via IPC proxy — no keys in renderer) ==========
 class AtxpAPI {
-    constructor() {
-        this.baseUrl = 'https://llm.atxp.ai';
-    }
-
-    _getHeaders() {
-        const cfg = getAtxpConfig();
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${cfg.token}`,
-            'x-account-id': cfg.accountId,
-        };
-    }
-
     async chat(model, messages, stream = false) {
-        const apiModel = model.includes('/') ? model.split('/').pop() : model;
-        console.log('ATXP chat model:', model, '-> API:', apiModel);
-        const body = {
-            model: apiModel,
-            messages,
-            stream,
-        };
+        const result = await window.api.atxp.chat(model, messages, stream);
 
-        const accounts = [
-            { connectionString: 'https://accounts.atxp.ai?connection_token=yag0uXh7o5dsHU9kv60Zb&account_id=atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
-            { connectionString: 'https://accounts.atxp.ai?connection_token=9nG86jG8LD2oI8Ok9Kx2h&account_id=atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
-            { connectionString: 'https://accounts.atxp.ai?connection_token=YcoJiP29r0VLJrJYe2ABG&account_id=atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
-            { connectionString: 'https://accounts.atxp.ai?connection_token=0dxF36u0wAMuXeaJGbo2p&account_id=atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
-        ];
-
-        let lastError;
-        for (let i = 0; i < accounts.length; i++) {
-            const cfg = accounts[i];
-            const headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${cfg.connectionString}`,
-            };
-
-            const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(body),
-            });
-
-            if (res.ok) {
-                localStorage.setItem('deepcode-atxp-idx', String(i));
-                if (stream) {
-                    const contentType = res.headers.get('content-type') || '';
-                    if (!contentType.includes('text/event-stream') && !contentType.includes('text/plain')) {
-                        const data = await res.json();
-                        return { _nonStreaming: true, content: data.choices?.[0]?.message?.content || JSON.stringify(data) };
-                    }
-                    return res.body;
-                }
-                const data = await res.json();
-                return { content: data.choices?.[0]?.message?.content || '' };
-            }
-
-            lastError = await res.json().catch(() => ({}));
-            console.log('ATXP Error:', res.status, JSON.stringify(lastError));
-            if (res.status !== 401 && res.status !== 403) break;
+        if (result._nonStreaming) {
+            return { content: result.content };
         }
 
-        const errDetail = lastError?.error?.[0]?.message || lastError?.message || JSON.stringify(lastError);
-        throw new Error(errDetail);
+        if (result instanceof Array || result instanceof Uint8Array) {
+            const bytes = new Uint8Array(result);
+            const text = new TextDecoder().decode(bytes);
+            return new ReadableStream({
+                start(controller) {
+                    controller.enqueue(bytes);
+                    controller.close();
+                }
+            });
+        }
+
+        return result;
     }
 
     async getModels() {
-        const accounts = [
-            { connectionString: 'https://accounts.atxp.ai?connection_token=yag0uXh7o5dsHU9kv60Zb&account_id=atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
-            { connectionString: 'https://accounts.atxp.ai?connection_token=9nG86jG8LD2oI8Ok9Kx2h&account_id=atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
-            { connectionString: 'https://accounts.atxp.ai?connection_token=YcoJiP29r0VLJrJYe2ABG&account_id=atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
-            { connectionString: 'https://accounts.atxp.ai?connection_token=0dxF36u0wAMuXeaJGbo2p&account_id=atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
-        ];
-
-        for (let i = 0; i < accounts.length; i++) {
-            const cfg = accounts[i];
-            const res = await fetch(`${this.baseUrl}/v1/models`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cfg.connectionString}`,
-                },
-            });
-
-            if (res.ok) {
-                localStorage.setItem('deepcode-atxp-idx', String(i));
-                const data = await res.json();
-                const nonChatPatterns = /image|embed|tts|whisper|dall-e|stable-diffusion|midjourney|audio|speech|moderation|ranker|classifier|tokenizer|vision|ocr|video|music|suno|fal-|luma|kling|runway|pika|ideogram|recraft|baseten|assembly|inworld/i;
-                return (data.data || [])
-                    .filter(m => !nonChatPatterns.test(m.id))
-                    .map(m => ({ id: m.id, name: m.id }));
-            }
-        }
-        return [];
+        return await window.api.atxp.models();
     }
 
     isLoggedIn() {
-        const cfg = getAtxpConfig();
-        return !!cfg.token && !!cfg.accountId;
+        return true;
+    }
+}
+
+// ========== DeepCode Go Client (Gateway v1) ==========
+class DeepCodeGoAPI {
+    async chat(model, messages, stream = false) {
+        if (stream) {
+            window.api.deepcodeGo.removeStreamListeners();
+            const result = await window.api.deepcodeGo.chat(model, messages, true);
+
+            if (result && result._streaming) {
+                return new ReadableStream({
+                    start(controller) {
+                        window.api.deepcodeGo.onStreamChunk((chunk) => {
+                            if (chunk.done) {
+                                window.api.deepcodeGo.removeStreamListeners();
+                                controller.close();
+                            } else if (chunk.error) {
+                                window.api.deepcodeGo.removeStreamListeners();
+                                controller.error(new Error(chunk.error));
+                            } else if (chunk.data) {
+                                controller.enqueue(new TextEncoder().encode(chunk.data));
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (result && result.content) {
+                return { _nonStreaming: true, content: result.content };
+            }
+        }
+
+        const result = await window.api.deepcodeGo.chat(model, messages, false);
+        return { _nonStreaming: true, content: result.content || '' };
+    }
+
+    async getModels() {
+        return await window.api.deepcodeGo.models();
+    }
+
+    isLoggedIn() {
+        return true;
+    }
+}
+
+// ========== Cloudflare Workers AI Client (deepcode-ultra) ==========
+class CloudflareAPI {
+    async chat(model, messages, stream = false) {
+        const result = await window.api.cf.chat(model, messages, stream);
+
+        if (result instanceof Array || result instanceof Uint8Array) {
+            const bytes = new Uint8Array(result);
+            return new ReadableStream({
+                start(controller) {
+                    controller.enqueue(bytes);
+                    controller.close();
+                }
+            });
+        }
+
+        if (result && result.content !== undefined && !result._nonStreaming) {
+            return { _nonStreaming: true, content: result.content || '' };
+        }
+        return result;
+    }
+
+    async setAccountId(id) {
+        return await window.api.cf.setAccountId(id);
+    }
+
+    async getConfig() {
+        return await window.api.cf.getConfig();
+    }
+
+    isLoggedIn() {
+        return true;
+    }
+}
+
+// ========== ZenMux API Client (DeepCode Pro + Review Mode) ==========
+class ZenMuxAPI {
+    async chat(messages, stream = false, mode = 'pro') {
+        const result = await window.api.zenmux.chat(messages, stream, mode);
+
+        if (result instanceof Array || result instanceof Uint8Array) {
+            const bytes = new Uint8Array(result);
+            return new ReadableStream({
+                start(controller) {
+                    controller.enqueue(bytes);
+                    controller.close();
+                }
+            });
+        }
+
+        if (result && result.content !== undefined && !result._nonStreaming) {
+            return { _nonStreaming: true, content: result.content || '' };
+        }
+        return result;
+    }
+
+    isLoggedIn() {
+        return true;
     }
 }
 
@@ -256,10 +273,15 @@ class UnifiedClient {
     constructor() {
         this.deepcode = new DeepCodeAPI();
         this.atxp = new AtxpAPI();
+        this.deepcodeGo = new DeepCodeGoAPI();
+        this.cloudflare = new CloudflareAPI();
+        this.zenmux = new ZenMuxAPI();
     }
 
     get activeClient() {
-        return getProvider() === 'atxp' ? this.atxp : this.deepcode;
+        const p = getProvider();
+        if (p === 'atxp') return this.atxp;
+        return this.deepcode;
     }
 
     get user() { return this.deepcode.user; }
@@ -267,37 +289,77 @@ class UnifiedClient {
     get token() { return this.deepcode.token; }
 
     async chat(model, messages, stream = false, projectContext = null) {
-        if (getProvider() === 'atxp') {
+        // DeepCode models: route to correct backend, bypass provider setting
+        if (model && (model.includes('go') || model === 'auto')) {
+            return await this.deepcodeGo.chat(model, messages, stream);
+        }
+        if (model && (model.includes('ultra') || model.includes('glm') || model.includes('deepcode-ultra'))) {
+            return await this.cloudflare.chat(model, messages, stream);
+        }
+        if (model && model.includes('pro')) {
+            return await this.zenmux.chat(messages, stream, 'pro');
+        }
+
+        const p = getProvider();
+        if (p === 'atxp') {
             return await this.atxp.chat(model, messages, stream);
         }
-        return await this.deepcode.chat(model, messages, stream, projectContext);
+        // Fallback: route through DeepCode Go (Gateway v1) instead of localhost:3000
+        return await this.deepcodeGo.chat(model || 'auto', messages, stream);
+    }
+
+    // Review mode — dùng ZenMux API
+    async reviewChat(messages, stream = false) {
+        return await this.zenmux.chat(messages, stream, 'review');
     }
 
     async getModels() {
-        if (getProvider() === 'atxp') {
-            return await this.atxp.getModels();
+        const p = getProvider();
+        if (p === 'atxp') {
+            const deepcodeModels = [
+                { id: 'deepcode-go', name: 'DeepCode Go' },
+                { id: 'deepcode-pro', name: 'DeepCode Pro' },
+                { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
+            ];
+            try {
+                const atxpModels = await this.atxp.getModels();
+                return [...deepcodeModels, ...atxpModels];
+            } catch (e) {
+                console.error('Failed to load ATXP models:', e);
+                return deepcodeModels;
+            }
         }
-        return await this.deepcode.getModels();
+        // Use DeepCode Go IPC → Gateway v1 (no localhost:3000)
+        try {
+            return await this.deepcodeGo.getModels();
+        } catch (e) {
+            console.error('Failed to load models from Gateway:', e);
+            // Fallback: empty list
+            return [];
+        }
     }
 
     async getCredits() {
-        if (getProvider() === 'atxp') {
-            return { tier: 'atxp', contextLimits: { maxContext: 128000 }, used: 0, total: Infinity };
-        }
+        const p = getProvider();
+        if (p === 'atxp') return await window.api.tier.get();
         return await this.deepcode.getCredits();
     }
 
+    async setTier(tier) {
+        const p = getProvider();
+        if (p === 'atxp') return await window.api.tier.set(tier);
+        return null;
+    }
+
     async getMe() {
-        if (getProvider() === 'atxp') {
-            return { name: 'DeepCode Server 2 User', provider: 'atxp' };
-        }
+        const p = getProvider();
+        if (p === 'atxp') return { name: 'DeepCode Server 2 User', provider: 'atxp' };
         return await this.deepcode.getMe();
     }
 
     isLoggedIn() {
-        if (getProvider() === 'atxp') {
-            return this.atxp.isLoggedIn();
-        }
+        const p = getProvider();
+        if (p === 'atxp') return this.atxp.isLoggedIn();
         return this.deepcode.isLoggedIn();
     }
 

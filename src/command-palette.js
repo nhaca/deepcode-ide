@@ -9,7 +9,12 @@ class CommandRegistry {
 
     search(query) {
         if (!query) return this.commands;
-        return fuzzysort.go(query, this.commands, { keys: ['label', 'keywords'] }).map((r) => r.obj);
+        const q = query.toLowerCase();
+        return this.commands.filter(cmd =>
+            cmd.label.toLowerCase().includes(q) ||
+            (cmd.keywords && cmd.keywords.toLowerCase().includes(q)) ||
+            cmd.id.toLowerCase().includes(q)
+        );
     }
 }
 

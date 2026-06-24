@@ -16,27 +16,28 @@ class AIPanel {
     }
 
     async checkAuth() {
-        const client = window.deepcodeClient;
-        if (client.isLoggedIn()) {
+        const fb = window.firebaseAuth;
+        if (fb && await fb.loadSession()) {
             try {
-                const user = await client.getMe();
-                try {
-                    this.credits = await client.getCredits();
-                } catch (ce) {
-                    console.warn('Credits fetch failed:', ce.message);
-                    this.credits = null;
+                const userData = await fb.getUserData();
+                if (userData && !userData.blocked) {
+                    this.credits = {
+                        tier: userData.tier || 'free',
+                        creditsUsed: userData.requestsToday || 0,
+                        creditsPerDay: { free: 999, pro: 200, premium: 500, business: 999999 }[userData.tier || 'free'] || 999,
+                        creditsPerMonth: { free: 9999, pro: 6000, premium: 15000, business: 999999 }[userData.tier || 'free'] || 9999,
+                    };
+                    const user = { id: fb.userId, email: userData.email, name: userData.displayName || userData.email };
+                    this.state.set('user', user);
+                    this.showLoggedInUI(user);
+                    return;
                 }
-                this.state.set('user', user);
-                this.showLoggedInUI(user);
             } catch (e) {
-                console.log('Auth check failed, clearing token:', e.message);
-                client.logout();
-                localStorage.removeItem('deepcode-token');
-                this.showLoginUI();
+                console.log('Firebase session expired:', e.message);
+                fb.logout();
             }
-        } else {
-            this.showLoginUI();
         }
+        this.showLoginUI();
     }
 
     saveHistory() {
@@ -47,6 +48,12 @@ class AIPanel {
 
     restoreHistory() {
         if (this.history.length === 0) return;
+        this.history.forEach(msg => {
+            if (msg.content) {
+                msg.content = msg.content.replace(/^\[QUY TẮC: Trả lời BẰNG TIẾNG VIỆT\]\s*/g, '');
+            }
+        });
+        this.saveHistory();
         setTimeout(() => {
             this.history.forEach(msg => {
                 if (msg.role === 'user' || msg.role === 'assistant') {
@@ -131,9 +138,9 @@ class AIPanel {
                                 <div class="tier-price"><span class="price-amount">$0</span><span class="price-period">/tháng</span></div>
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
-                                    <li>100 credits/ngày</li>
+                                    <li>Xem models có sẵn</li>
                                     <li>Context 4K tokens</li>
-                                    <li>15+ models AI</li>
+                                    <li>Không sử dụng được DeepCode Server 2</li>
                                     <li>Hỗ trợ cơ bản</li>
                                 </ul>
                                 <button class="tier-btn" data-tier="free">Đang dùng</button>
@@ -143,30 +150,47 @@ class AIPanel {
                                 <div class="tier-icon">
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                                 </div>
-                                <div class="tier-name">Pro</div>
+                                <div class="tier-name">PRO</div>
                                 <div class="tier-price"><span class="price-amount">$19</span><span class="price-period">/tháng</span></div>
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
-                                    <li>500 credits/ngày</li>
+                                    <li>10 lượt/ngày</li>
+                                    <li>300 lượt/tháng</li>
                                     <li>Context 32K tokens</li>
-                                    <li>GPT-5.5, Claude 4.6, Gemini 3.1</li>
-                                    <li>DeepCode Token Savings</li>
+                                    <li>DeepCode Server 2</li>
                                     <li>Hỗ trợ ưu tiên</li>
                                 </ul>
                                 <button class="tier-btn primary" data-tier="pro">Nâng cấp ngay</button>
                             </div>
-                            <div class="upgrade-tier" data-tier="business">
+                            <div class="upgrade-tier premium" data-tier="premium">
+                                <div class="tier-badge">Cao cấp</div>
+                                <div class="tier-icon">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                </div>
+                                <div class="tier-name">Premium</div>
+                                <div class="tier-price"><span class="price-amount">$49</span><span class="price-period">/tháng</span></div>
+                                <div class="tier-divider"></div>
+                                <ul class="tier-features">
+                                    <li>1000 lượt/tháng</li>
+                                    <li>Context 64K tokens</li>
+                                    <li>DeepCode Server 2</li>
+                                    <li>Tất cả models</li>
+                                    <li>Hỗ trợ ưu tiên cao</li>
+                                </ul>
+                                <button class="tier-btn" data-tier="premium">Nâng cấp ngay</button>
+                            </div>
+                            <div class="upgrade-tier business" data-tier="business">
                                 <div class="tier-icon">
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                                 </div>
                                 <div class="tier-name">Business</div>
-                                <div class="tier-price"><span class="price-amount">$49</span><span class="price-period">/tháng</span></div>
+                                <div class="tier-price"><span class="price-amount">$99</span><span class="price-period">/tháng</span></div>
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
-                                    <li>Không giới hạn credits</li>
+                                    <li>3000 lượt/tháng</li>
                                     <li>Context 128K tokens</li>
+                                    <li>DeepCode Server 2</li>
                                     <li>Tất cả models + Priority</li>
-                                    <li>DeepCode Token + Headroom</li>
                                     <li>Hỗ trợ dedicated</li>
                                 </ul>
                                 <button class="tier-btn" data-tier="business">Nâng cấp ngay</button>
@@ -196,17 +220,19 @@ class AIPanel {
                             </svg>
                         </div>
                         <h3>DeepCode AI</h3>
-                        <p>Sign in to unlock AI-powered coding</p>
+                        <p>Đăng nhập để sử dụng AI</p>
                     </div>
 
-                    <button class="github-login-btn" id="githubLoginBtn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                        Sign in with GitHub
+                    <button id="googleLoginBtn" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:10px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                        Đăng nhập với Google
                     </button>
 
-                    <p class="auth-hint">Free account with 50 AI credits per day</p>
+                    <button id="githubLoginBtn" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:10px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                        Đăng nhập với GitHub
+                    </button>
+
                     <p class="auth-error" id="authError" style="display: none;"></p>
                 </div>
 
@@ -247,6 +273,7 @@ class AIPanel {
                     <div class="ai-input-area">
                         <div class="ai-model-select" id="aiModelSelect">
                             <select id="aiModelDropdown"></select>
+                            <span class="ai-auto-badge" id="aiAutoBadge" style="display:none;" title="AI tự động chấp nhận">⚡ Auto</span>
                         </div>
                         <div class="ai-input-wrapper">
                             <button class="ai-attach-btn" id="aiAttachBtn" title="Đính kèm file">
@@ -281,17 +308,43 @@ class AIPanel {
         document.getElementById('aiCreditsBar').style.display = 'flex';
         this.updateCreditsDisplay();
         this.loadModels();
+        this.updateAutoBadge();
+    }
+
+    updateAutoBadge() {
+        const badge = document.getElementById('aiAutoBadge');
+        if (!badge) return;
+        const filePerm = localStorage.getItem('deepcode-file-perm') || 'ask';
+        const termPerm = localStorage.getItem('deepcode-term-perm') || 'ask';
+        badge.style.display = (filePerm === 'auto' || termPerm === 'auto') ? 'inline' : 'none';
     }
 
     updateCreditsDisplay() {
         if (!this.credits) return;
-        document.getElementById('creditsTier').textContent = this.credits.tier.charAt(0).toUpperCase() + this.credits.tier.slice(1);
-        document.getElementById('creditsUsed').textContent = this.credits.creditsUsed;
-        document.getElementById('creditsTotal').textContent = this.credits.creditsPerDay === 999999 ? '∞' : this.credits.creditsPerDay;
-        const percent = this.credits.creditsPerDay === 999999 ? 0 : (this.credits.creditsUsed / this.credits.creditsPerDay) * 100;
-        document.getElementById('creditsBarFill').style.width = `${Math.min(100, percent)}%`;
+        const tier = this.credits.tier || 'free';
+        const tierNames = { free: 'Free', pro: 'PRO', premium: 'Premium', business: 'Business' };
+        document.getElementById('creditsTier').textContent = tierNames[tier] || tier;
 
-        const maxCtx = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
+        const isFree = tier === 'free';
+        const used = this.credits.creditsUsed || 0;
+        const perDay = this.credits.creditsPerDay || 0;
+        const perMonth = this.credits.creditsPerMonth || 0;
+
+        if (isFree) {
+            document.getElementById('creditsUsed').textContent = '0';
+            document.getElementById('creditsTotal').textContent = 'N/A';
+            document.getElementById('creditsBarFill').style.width = '0%';
+        } else {
+            document.getElementById('creditsUsed').textContent = used;
+            document.getElementById('creditsTotal').textContent = perDay === 999999 ? '∞' : `${perDay}/ngày`;
+            const percent = perDay === 999999 ? 0 : (used / perDay) * 100;
+            document.getElementById('creditsBarFill').style.width = `${Math.min(100, percent)}%`;
+        }
+
+        const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+        const _tier = this.credits?.tier || 'free';
+        const _tierMax = tierMaxCtx[_tier] || 4096;
+        const maxCtx = _tierMax;
         const usedCtx = this._estimateTokens(this.history);
         const ctxPercent = Math.min(100, (usedCtx / maxCtx) * 100);
         const ctxLabel = maxCtx >= 1000 ? `${Math.round(maxCtx / 1000)}K` : maxCtx;
@@ -306,21 +359,98 @@ class AIPanel {
     }
 
     async loadModels() {
-        try {
-            const result = await window.deepcodeClient.getModels();
-            const models = Array.isArray(result) ? result : (result?.models || []);
-            const dropdown = document.getElementById('aiModelDropdown');
-            if (dropdown) {
+        const dropdown = document.getElementById('aiModelDropdown');
+        const defaultModels = [
+            { id: 'deepcode-go', name: 'DeepCode Go' },
+            { id: 'deepcode-pro', name: 'DeepCode Pro' },
+            { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
+        ];
+
+        const providerOrder = ['DeepCode', 'OpenAI', 'Anthropic', 'Google', 'Meta', 'DeepSeek', 'Mistral', 'Cohere', 'xAI', 'Alibaba', 'Baidu', 'ByteDance', 'Zhipu', '01.AI', 'Other'];
+
+        const getProvider = (id) => {
+            const lower = id.toLowerCase();
+            if (lower.startsWith('deepcode')) return 'DeepCode';
+            if (lower.startsWith('openai') || lower.startsWith('gpt') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) return 'OpenAI';
+            if (lower.startsWith('anthropic') || lower.startsWith('claude')) return 'Anthropic';
+            if (lower.startsWith('google') || lower.startsWith('gemini')) return 'Google';
+            if (lower.startsWith('meta') || lower.startsWith('llama')) return 'Meta';
+            if (lower.startsWith('deepseek')) return 'DeepSeek';
+            if (lower.startsWith('mistral') || lower.startsWith('mixtral')) return 'Mistral';
+            if (lower.startsWith('cohere') || lower.startsWith('command')) return 'Cohere';
+            if (lower.startsWith('x-ai') || lower.startsWith('grok')) return 'xAI';
+            if (lower.startsWith('alibaba') || lower.startsWith('qwen')) return 'Alibaba';
+            if (lower.startsWith('baidu') || lower.startsWith('ernie')) return 'Baidu';
+            if (lower.startsWith('bytedance') || lower.startsWith('doubao')) return 'ByteDance';
+            if (lower.startsWith('zhipu') || lower.startsWith('glm') || lower.startsWith('chatglm')) return 'Zhipu';
+            if (lower.startsWith('01-ai') || lower.startsWith('yi')) return '01.AI';
+            const slash = id.indexOf('/');
+            if (slash > 0) return id.substring(0, slash);
+            return 'Other';
+        };
+
+        const cleanName = (id) => {
+            const slash = id.indexOf('/');
+            const raw = slash > 0 ? id.substring(slash + 1) : id;
+            return raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        };
+
+        const buildGroupedOptions = (models) => {
+            const groups = {};
+            for (const m of models) {
+                const provider = getProvider(m.id);
+                if (!groups[provider]) groups[provider] = [];
+                groups[provider].push(m);
+            }
+            let html = '';
+            for (const provider of providerOrder) {
+                const items = groups[provider];
+                if (!items || items.length === 0) continue;
+                items.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+                html += `<optgroup label="${provider}">`;
+                for (const m of items) {
+                    html += `<option value="${m.id}">${m.name || cleanName(m.id)}</option>`;
+                }
+                html += '</optgroup>';
+            }
+            return html;
+        };
+
+        const applyModels = (models) => {
+            if (!dropdown) return;
+            if (models.length <= 3) {
                 dropdown.innerHTML = models.map(m =>
                     `<option value="${m.id}">${m.name || m.id}</option>`
                 ).join('');
-                const savedModel = localStorage.getItem('deepcode-default-model');
-                if (savedModel && dropdown.querySelector(`option[value="${savedModel}"]`)) {
-                    dropdown.value = savedModel;
-                }
+            } else {
+                dropdown.innerHTML = buildGroupedOptions(models);
+            }
+            const savedModel = localStorage.getItem('deepcode-default-model');
+            if (savedModel && dropdown.querySelector(`option[value="${savedModel}"]`)) {
+                dropdown.value = savedModel;
+                this.currentModel = savedModel;
+            }
+        };
+
+        const cached = localStorage.getItem('deepcode-cached-models');
+        if (cached) {
+            try {
+                applyModels(JSON.parse(cached));
+            } catch {}
+        } else {
+            applyModels(defaultModels);
+        }
+
+        try {
+            const result = await window.deepcodeClient.getModels();
+            const models = Array.isArray(result) ? result : (result?.models || []);
+            if (models.length > 0) {
+                localStorage.setItem('deepcode-cached-models', JSON.stringify(models));
+                applyModels(models);
             }
         } catch (e) {
             console.error('Failed to load models:', e);
+            if (!cached) applyModels(defaultModels);
         }
         this.loadRtkStats();
     }
@@ -351,8 +481,10 @@ class AIPanel {
 
     setupEvents() {
         this.attachedFiles = [];
+        this.currentModel = localStorage.getItem('deepcode-default-model') || 'deepcode-go';
 
         document.getElementById('aiModelDropdown')?.addEventListener('change', (e) => {
+            this.currentModel = e.target.value;
             localStorage.setItem('deepcode-default-model', e.target.value);
         });
 
@@ -422,7 +554,7 @@ class AIPanel {
             e.target.value = '';
         });
 
-        // Listen for auth callback from main process
+        // Listen for auth callback from main process (legacy GitHub auth)
         if (window.electronAPI?.onGithubAuth) {
             window.electronAPI.onGithubAuth(async (data) => {
                 try {
@@ -430,15 +562,40 @@ class AIPanel {
                     client.token = data.token;
                     client.user = data.user;
                     localStorage.setItem('deepcode-token', data.token);
-
-                    this.credits = await client.getCredits();
-                    this.showLoggedInUI(data.user);
-                    window.ide?.showToast?.('+100 credits đã được thêm!');
+                    await this.checkAuth();
                 } catch (e) {
                     console.error('Auth callback error:', e.message);
-                    window.deepcodeClient.logout();
-                    localStorage.removeItem('deepcode-token');
                     this.showLoginUI();
+                }
+            });
+        }
+
+        // Listen for Firebase OAuth callback
+        if (window.electronAPI?.onOAuthCallback) {
+            window.electronAPI.onOAuthCallback(async (data) => {
+                const errorEl = document.getElementById('authError');
+                if (data.error) {
+                    if (errorEl) {
+                        errorEl.textContent = 'Đăng nhập thất bại: ' + data.error;
+                        errorEl.style.display = 'block';
+                    }
+                    return;
+                }
+                try {
+                    const fb = window.firebaseAuth;
+                    if (data.provider === 'google' && data.idToken) {
+                        await fb.signInWithGoogle(data.idToken);
+                    } else if (data.provider === 'github' && data.accessToken) {
+                        await fb.signInWithGitHub(data.accessToken);
+                    }
+                    fb.saveSession();
+                    await this.checkAuth();
+                } catch (e) {
+                    console.error('Firebase OAuth error:', e.message);
+                    if (errorEl) {
+                        errorEl.textContent = 'Lỗi xác thực: ' + e.message;
+                        errorEl.style.display = 'block';
+                    }
                 }
             });
         }
@@ -498,7 +655,11 @@ class AIPanel {
             btn.addEventListener('click', async () => {
                 const tier = btn.dataset.tier;
                 try {
-                    await window.deepcodeClient.upgradeTier(tier);
+                    if (getProvider() === 'atxp') {
+                        await window.deepcodeClient.setTier(tier);
+                    } else {
+                        await window.deepcodeClient.upgradeTier(tier);
+                    }
                     this.credits = await window.deepcodeClient.getCredits();
                     this.updateCreditsDisplay();
                     document.getElementById('aiUpgradeModal').style.display = 'none';
@@ -518,21 +679,36 @@ class AIPanel {
             });
         });
 
-        // GitHub login button
-        document.getElementById('githubLoginBtn')?.addEventListener('click', async () => {
+        // Firebase OAuth login
+        const errorEl = document.getElementById('authError');
+
+        document.getElementById('googleLoginBtn')?.addEventListener('click', async () => {
+            errorEl.style.display = 'none';
             try {
-                const res = await fetch(`${getApiUrl()}/api/auth/github`);
-                const data = await res.json();
-                if (data.url) {
-                    window.electronAPI.openExternal(data.url);
-                }
-            } catch (e) {
-                console.error('GitHub login error:', e);
-                const errorEl = document.getElementById('authError');
-                if (errorEl) {
-                    errorEl.textContent = 'Lỗi kết nối server';
+                if (window.electronAPI?.oauthGoogle) {
+                    window.electronAPI.oauthGoogle();
+                } else {
+                    errorEl.textContent = 'Google login chưa khả dụng';
                     errorEl.style.display = 'block';
                 }
+            } catch (e) {
+                errorEl.textContent = 'Lỗi kết nối Google';
+                errorEl.style.display = 'block';
+            }
+        });
+
+        document.getElementById('githubLoginBtn')?.addEventListener('click', async () => {
+            errorEl.style.display = 'none';
+            try {
+                if (window.electronAPI?.oauthGitHub) {
+                    window.electronAPI.oauthGitHub();
+                } else {
+                    errorEl.textContent = 'GitHub login chưa khả dụng';
+                    errorEl.style.display = 'block';
+                }
+            } catch (e) {
+                errorEl.textContent = 'Lỗi kết nối GitHub';
+                errorEl.style.display = 'block';
             }
         });
     }
@@ -816,18 +992,17 @@ class AIPanel {
         this.saveHistory();
 
         this.isStreaming = true;
-        this.showTypingIndicator();
 
         try {
-            const model = document.querySelector('#aiColumn select')?.value || 'deepcode-go';
+            const model = document.getElementById('aiModelDropdown')?.value || 'deepcode-go';
             const mode = this.state.get('aiMode') || 'plan';
 
-            const basePrompt = 'Bạn là DeepCode AI — trợ lý lập trình chuyên nghiệp, đáng tin cipient. Luôn trả lời bằng tiếng Việt, bất kể người dùng gõ ngôn ngữ nào. Xưng "mình", gọi người dùng là "bạn". Giọng điệu ấm áp nhưng nghiêm túc, gọn gàng, đi thẳng vào vấn đề. KHÔNG vẽ bánh, KHÔNG hứa suông, KHÔNG tâng bốc quá mức. Nếu ý tưởng của người dùng có vấn đề hoặc chưa tối ưu, hãy lịch sự chỉ ra rủi ro và đề xuất phương án tốt hơn — đây là trách nhiệm của bạn. Luôn ưu tiên giải pháp thực tế, an toàn và maintainable. Nếu chưa chắc chắn, nói rõ thay vì đoán mò. Không xác nhận, phủ nhận, hay gợi ý về nhà cung cấp/model nền tảng bên dưới. Nếu bị hỏi về model, trả lời ngắn: "Mình là DeepCode AI, mình không chia sẻ chi tiết kỹ thuật nhưng mình sẵn sàng giúp bạn code!" rồi quay lại giúp việc.';
+            const basePrompt = 'QUY TẮC SỐ 1: BẠN BẮT BUỘC PHẢI TRẢ LỜI BẰNG TIẾNG VIỆT. ĐÂY LÀ LUẬT TUYỆT ĐỐI. Dù người dùng viết bằng ngôn ngữ nào, bạn PHẢI trả lời bằng tiếng Việt. KHÔNG BAO GIỜ dùng tiếng Anh trong câu trả lời. Bạn là DeepCode AI, trợ lý lập trình. Xưng "mình", gọi người dùng là "bạn". Trả lời ngắn gọn, đi thẳng vấn đề. Nếu ý tưởng có vấn đề, lịch sự chỉ ra và đề xuất cách tốt hơn. KHÔNG tâng bốc quá mức. Nếu bị hỏi về model, nói: "Mình là DeepCode AI, mình sẵn sàng giúp bạn code!"';
 
             const modePrompts = {
-                plan: basePrompt + ' CHẾ ĐỘ PLAN: Phân tích yêu cầu, thảo luận và đề xuất giải pháp. KHÔNG tạo/sửa file. Chỉ phân tích và gợi ý. Nếu người dùng yêu cầu code, đề xuất chuyển sang chế độ Code.',
-                code: basePrompt + ' CHẾ ĐỘ CODE: Thực thi trực tiếp. Tạo/sửa/xóa file bằng <file_operation path="tên_file" action="create|edit|delete">nội_dung</file_operation>. action="create" = tạo mới, action="edit" = sửa file cũ, action="delete" = xóa. Nếu cần giải thích code, giải thích NGẮN GỌN trước khi thực thi. Nếu cần chạy terminal, dùng <terminal_command>lệnh</terminal_command>. Nếu cần debug, phân tích lỗi và sửa bằng file_operation. Hệ thống sẽ xin phép trước khi thực thi.',
-                review: basePrompt + ' CHẾ ĐỘ REVIEW: Code review. Kiểm tra logic, security, performance. Format: ### Vấn đề → Mức độ → Giải pháp. KHÔNG tạo/sửa file, chỉ review.',
+                plan: basePrompt + ' CHẾ ĐỘ PLAN: Phân tích yêu cầu, thảo luận và đề xuất giải pháp. KHÔNG tạo/sửa file. Chỉ phân tích và gợi ý. Nếu người dùng yêu cầu code, đề xuất chuyển sang chế độ Code. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
+                code: basePrompt + ' CHẾ ĐỘ CODE: Thực thi trực tiếp. Tạo/sửa/xóa file bằng <file_operation path="tên_file" action="create|edit|delete">nội_dung</file_operation>. action="create" = tạo mới, action="edit" = sửa file cũ, action="delete" = xóa. Nếu cần giải thích code, giải thích NGẮN GỌN trước khi thực thi. Nếu cần chạy terminal, dùng <terminal_command>lệnh</terminal_command>. Nếu cần debug, phân tích lỗi và sửa bằng file_operation. Hệ thống sẽ xin phép trước khi thực thi. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
+                review: basePrompt + ' CHẾ ĐỘ REVIEW: Code review. Kiểm tra logic, security, performance. Format: ### Vấn đề → Mức độ → Giải pháp. KHÔNG tạo/sửa file, chỉ review. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
             };
 
             const socraticCheck = this._detectSocraticIntent(message);
@@ -840,8 +1015,10 @@ class AIPanel {
             systemPrompt += ' ANTI-SYCOPHANCY: Nếu người dùng đề xuất giải pháp có vấn đề, hãy challenge một cách lịch sự. Chỉ ra rủi ro, đề xuất thay thế tốt hơn. KHÔNG luôn đồng ý.';
             systemPrompt += ` STYLE PROFILE: Phong cách coding của user: ${this._getStyleHint()}.`;
 
-            const maxContext = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
+            const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
             const tier = this.credits?.tier || 'free';
+            const tierMax = tierMaxContext[tier] || 4096;
+            const maxContext = tierMax;
             const resetLimit = tier === 'premium' || tier === 'business' ? Infinity : (tier === 'pro' ? 30 : 5);
             const resetCount = parseInt(localStorage.getItem('deepcode-reset-count') || '0');
             const shouldReset = this._estimateTokens(this.history) > maxContext * 0.7;
@@ -852,14 +1029,30 @@ class AIPanel {
                     this.addMessage(`[Đã hết lượt reset context (${resetLimit} lần). Vui lòng tạo cuộc trò chuyện mới bằng lệnh /reset]`, 'system');
                 } else {
                     this._saveCurrentSession();
-                    const summary = this.history
+                    // Smart context compaction (học từ OpenCode)
+                    // 1. Extract key decisions and code from earlier messages
+                    const earlier = this.history.slice(0, -4);
+                    const decisions = earlier
                         .filter(m => m.role === 'user')
-                        .slice(0, 3)
-                        .map(m => m.content.slice(0, 60))
-                        .join('; ');
+                        .map(m => m.content.slice(0, 100))
+                        .slice(-3);
+                    const codeSnippets = earlier
+                        .filter(m => m.role === 'assistant' && (m.content.includes('```') || m.content.includes('file_operation')))
+                        .map(m => {
+                            const match = m.content.match(/```[\s\S]{0,200}/);
+                            return match ? match[0].slice(0, 150) : null;
+                        })
+                        .filter(Boolean)
+                        .slice(-2);
+                    // 2. Build rich summary
+                    const summaryParts = [];
+                    if (decisions.length > 0) summaryParts.push(`Yêu cầu: ${decisions.join(' | ')}`);
+                    if (codeSnippets.length > 0) summaryParts.push(`Code đã viết: ${codeSnippets.join(' ... ')}`);
+                    const summary = summaryParts.join('\n') || earlier.filter(m => m.role === 'user').slice(0, 2).map(m => m.content.slice(0, 60)).join('; ');
+                    // 3. Keep last 4 messages (more context than before)
                     conversationHistory = [
-                        { role: 'system', content: `[Cuộc trò chuyện trước: ${summary}]` },
-                        ...this.history.slice(-2),
+                        { role: 'system', content: `[Cuộc trò chuyện trước — tóm tắt:\n${summary}]` },
+                        ...this.history.slice(-4),
                     ];
                     localStorage.setItem('deepcode-reset-count', String(resetCount + 1));
                     this._showResetNotice();
@@ -871,16 +1064,49 @@ class AIPanel {
                 ...conversationHistory,
             ];
 
+            const apiMessages = messages.map((m, i) => {
+                if (i === messages.length - 1 && m.role === 'user') {
+                    return { ...m, content: '[QUY TẮC: Trả lời BẰNG TIẾNG VIỆT] ' + m.content };
+                }
+                return m;
+            });
+
             const responseEl = this.addMessage('', 'assistant');
+            this.showTypingIndicator();
             const client = window.deepcodeClient;
 
-            if (client.isLoggedIn()) {
+            // Tự động phát hiện yêu cầu review project
+            const isReviewRequest = this._isReviewRequest(message);
+            let useReviewModel = false;
+            let reviewSystemPrompt = '';
+
+            if (isReviewRequest) {
+                useReviewModel = true;
+                reviewSystemPrompt = 'Bạn là DeepCode AI Review — chuyên gia code review chuyên nghiệp. TUYỆT ĐỐI trả lời bằng tiếng Việt. PHẢI phân tích dựa trên code và context đã được cung cấp. KHÔNG BAO GIỜ yêu cầu người dùng gửi lại code hoặc cấu trúc project — mọi thông tin đã có trong context. Chỉ ra vấn đề về logic, security, performance, maintainability. Format: ### Vấn đề → Mức độ (Critical/High/Medium/Low) → Giải pháp. Tổng quan project trước khi đi vào chi tiết.';
+                apiMessages[0] = { role: 'system', content: reviewSystemPrompt };
+            }
+
+            if (window.firebaseAuth && window.firebaseAuth.isLoggedIn()) {
                 const projectContext = await this.getProjectContext();
                 let fullContent = '';
-                const response = await client.chat(model, messages, true, projectContext || null);
+
+                if (useReviewModel && projectContext) {
+                    apiMessages.unshift({ role: 'system', content: `## CONTEXT PROJECT:\n${projectContext}\n\nDựa trên context project ở trên để phân tích. KHÔNG yêu cầu thêm thông tin.` });
+                }
+
+                let response;
+                if (useReviewModel) {
+                    response = await client.reviewChat(apiMessages, true);
+                } else {
+                    if (projectContext) {
+                        apiMessages.unshift({ role: 'system', content: `## CONTEXT PROJECT:\n${projectContext}` });
+                    }
+                    response = await client.chat(model, apiMessages, true, projectContext || null);
+                }
 
                 if (response._nonStreaming) {
                     fullContent = response.content;
+                    this.hideTypingIndicator();
                     this.updateMessage(responseEl, fullContent);
                 } else {
                     let buffer = '';
@@ -902,14 +1128,18 @@ class AIPanel {
                                 try {
                                     const parsed = JSON.parse(data);
                                     const delta = parsed.choices?.[0]?.delta?.content
+                                        || parsed.choices?.[0]?.message?.content
                                         || parsed.content
                                         || parsed.delta?.content
+                                        || parsed.candidates?.[0]?.content?.parts?.[0]?.text
                                         || '';
                                     if (delta) {
                                         fullContent += delta;
                                         this.updateMessage(responseEl, fullContent, true);
                                     }
-                                } catch {}
+                                } catch (e) {
+                                    console.warn('SSE parse error:', e.message, 'data:', data.substring(0, 200));
+                                }
                             }
                         }
                     }
@@ -927,9 +1157,9 @@ class AIPanel {
                 }
 
                 const contextFiles = this._extractContextFiles(projectContext);
-                const tokenBefore = this._estimateTokens(this.history.slice(0, -1));
-                const tokenAfter = this._estimateTokens(this.history);
-                const tokenUsed = tokenAfter - tokenBefore;
+                this.history.push({ role: 'assistant', content: fullContent });
+                this.saveHistory();
+                const tokenUsed = this._estimateTokens([{ content: fullContent }]);
                 this.addActivitySummary({
                     fileReads: contextFiles,
                     fileOps: fileOps,
@@ -938,26 +1168,64 @@ class AIPanel {
                     charCount: fullContent.length,
                 });
 
-                this.history.push({ role: 'assistant', content: fullContent });
-                this.saveHistory();
-                this.credits = await client.getCredits();
+                const fb = window.firebaseAuth;
+                if (fb && fb.isLoggedIn()) {
+                    try {
+                        const userData = await fb.getUserData();
+                        const newCount = (userData?.requestsToday || 0) + 1;
+                        await fb.updateUserData({
+                            requestsToday: newCount,
+                            totalRequests: (userData?.totalRequests || 0) + 1,
+                            lastLogin: Date.now(),
+                        });
+                        fb.trackUsage(this.currentModel, fullContent.length);
+                        this.credits = {
+                            tier: userData?.tier || 'free',
+                            creditsUsed: newCount,
+                            creditsPerDay: { free: 999, pro: 200, premium: 500, business: 999999 }[userData?.tier || 'free'] || 999,
+                            creditsPerMonth: { free: 9999, pro: 6000, premium: 15000, business: 999999 }[userData?.tier || 'free'] || 9999,
+                        };
+                    } catch (e) { console.warn('Firebase usage track failed:', e.message); }
+                }
                 this.updateCreditsDisplay();
                 this.updateContextDisplay();
+                try { window.api.admin.incrementRequests(); } catch (e) {}
             } else {
                 this.updateMessage(responseEl, 'Vui lòng đăng nhập để sử dụng AI.');
             }
         } catch (error) {
             console.error('Chat error:', error);
-            this.addMessage(`Error: ${error.message}`, 'assistant');
-        } finally {
             this.hideTypingIndicator();
+            let errMsg = error.message || 'Không rõ lỗi';
+            if (errMsg.includes('model:') || errMsg.includes('model not found') || errMsg.includes('model_not_found')) {
+                errMsg = 'Model này không khả dụng. Vui lòng chọn model khác.';
+            } else if (errMsg.includes('Free') || errMsg.includes('free')) {
+                errMsg = 'Tài khoản Free không hỗ trợ model này. Vui lòng nâng cấp PRO để sử dụng.';
+            } else if (errMsg.includes('Rate limit') || errMsg.includes('rate limit')) {
+                errMsg = 'Bạn đã vượt quá giới hạn. Vui lòng thử lại sau.';
+            } else if (errMsg.includes('Cloudflare') || errMsg.includes('cloudflare')) {
+                errMsg = 'Lỗi kết nối Cloudflare. Vui lòng thử lại.';
+            } else if (errMsg.includes('ATXP') || errMsg.includes('atxp') || errMsg.includes('provider')) {
+                errMsg = 'Lỗi kết nối AI. Vui lòng thử lại.';
+            } else if (errMsg.includes('500') || errMsg.includes('Internal Server')) {
+                errMsg = 'Server đang gặp sự cố. Vui lòng thử lại sau.';
+            } else if (errMsg.includes('Combo not included')) {
+                errMsg = 'Model này không có trong gói của bạn. Vui lòng chọn model khác hoặc nâng cấp.';
+            } else if (errMsg.includes('Failed to fetch') || errMsg.includes('fetch failed') || errMsg.includes('NetworkError')) {
+                errMsg = 'Không thể kết nối server. Vui lòng kiểm tra kết nối mạng.';
+            }
+            this.addMessage(errMsg, 'system');
+        } finally {
             this.isStreaming = false;
         }
     }
 
     updateContextDisplay() {
         if (!this.credits) return;
-        const maxCtx = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
+        const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+        const _tier = this.credits?.tier || 'free';
+        const _tierMax = tierMaxCtx[_tier] || 4096;
+        const maxCtx = _tierMax;
         const usedCtx = this._estimateTokens(this.history);
         const ctxPercent = Math.min(100, (usedCtx / maxCtx) * 100);
         const ctxLabel = maxCtx >= 1000 ? `${Math.round(maxCtx / 1000)}K` : maxCtx;
@@ -977,6 +1245,11 @@ class AIPanel {
             chars += (msg.content || '').length;
         }
         return Math.ceil(chars / 3);
+    }
+
+    _escHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     _extractContextFiles(context) {
@@ -1023,12 +1296,11 @@ class AIPanel {
 
         if (items.length === 0) return;
 
-        const div = document.createElement('div');
-        div.className = 'ai-message system';
-        div.innerHTML = `<div class="activity-summary">${items.join('')}</div>`;
-
+        const lastAssistant = document.querySelector('.ai-message.assistant:last-of-type .ai-activity-container');
+        if (lastAssistant) {
+            lastAssistant.innerHTML = `<div class="activity-summary">${items.join('')}</div>`;
+        }
         const messages = document.querySelector('#aiColumn #aiMessages') || document.getElementById('aiMessages');
-        messages?.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
     }
 
@@ -1053,7 +1325,47 @@ class AIPanel {
         return cmds;
     }
 
+    // ===== Permission Enforcement (học từ OpenCode) =====
+    // Plan/Review modes enforce real blocking, not just prompt instructions
+    _getEffectiveMode() {
+        return this.state.get('aiMode') || 'plan';
+    }
+
+    _isWriteBlocked() {
+        const mode = this._getEffectiveMode();
+        return mode === 'plan' || mode === 'review';
+    }
+
+    _isTerminalBlocked() {
+        const mode = this._getEffectiveMode();
+        return mode === 'plan' || mode === 'review';
+    }
+
+    _getBlockedReason() {
+        const mode = this._getEffectiveMode();
+        if (mode === 'plan') return 'CHẾ ĐỘ PLAN: Không được phép tạo/sửa/xóa file hoặc chạy terminal. Chỉ phân tích và gợi ý.';
+        if (mode === 'review') return 'CHẾ ĐỘ REVIEW: Không được phép tạo/sửa/xóa file. Chỉ review code.';
+        return null;
+    }
+
     async requestTerminalPermission(commands) {
+        // ENFORCEMENT: Plan/Review mode blocks terminal
+        if (this._isTerminalBlocked()) {
+            const reason = this._getBlockedReason();
+            this.addMessage(`[BỊ CHẶN] ${reason}`, 'system');
+            return false;
+        }
+
+        const perm = localStorage.getItem('deepcode-term-perm') || 'ask';
+        if (perm === 'deny') {
+            this.addMessage('[BỊ CHẶN] Terminal permission denied by user settings.', 'system');
+            return false;
+        }
+        if (perm === 'auto') {
+            await this.executeTerminalCommands(commands);
+            return true;
+        }
+
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.className = 'file-perm-overlay';
@@ -1117,26 +1429,88 @@ class AIPanel {
     }
 
     async requestFilePermission(operations) {
+        // ENFORCEMENT: Plan/Review mode blocks file writes
+        if (this._isWriteBlocked()) {
+            const reason = this._getBlockedReason();
+            this.addMessage(`[BỊ CHẶN] ${reason}`, 'system');
+            return false;
+        }
+
+        // Granular: check delete permission separately
+        const hasDelete = operations.some(op => op.action === 'delete');
+        if (hasDelete) {
+            const deletePerm = localStorage.getItem('deepcode-delete-perm') || 'ask';
+            if (deletePerm === 'deny') {
+                this.addMessage('[BỊ CHẶN] Delete permission denied by user settings.', 'system');
+                return false;
+            }
+        }
+
+        const perm = localStorage.getItem('deepcode-file-perm') || 'ask';
+        if (perm === 'deny') {
+            this.addMessage('[BỊ CHẶN] File write permission denied by user settings.', 'system');
+            return false;
+        }
+        if (perm === 'auto') {
+            await this.executeFileOperations(operations);
+            return true;
+        }
+
+        // Build diff preview for each operation
+        const workspaceRoot = this.state.get('workspaceRoot');
+        const opsWithDiff = await Promise.all(operations.map(async (op) => {
+            const diff = { ...op, oldContent: null, newContent: op.content, isNew: op.action === 'create', isDelete: op.action === 'delete' };
+            if (op.action === 'edit' && workspaceRoot) {
+                try {
+                    const fullPath = workspaceRoot + '\\' + op.path;
+                    diff.oldContent = await window.api.fs.readFile(fullPath) || '';
+                } catch {}
+            }
+            return diff;
+        }));
+
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.className = 'file-perm-overlay';
             overlay.innerHTML = `
-                <div class="file-perm-dialog">
+                <div class="file-perm-dialog file-perm-dialog-wide">
                     <div class="file-perm-header">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        <span>AI muốn chỉnh sửa file</span>
+                        <span>AI muốn chỉnh sửa ${operations.length} file</span>
                     </div>
                     <div class="file-perm-list">
-                        ${operations.map(op => `
-                            <div class="file-perm-item">
-                                <span class="file-perm-action ${op.action}">${op.action.toUpperCase()}</span>
-                                <span class="file-perm-path">${op.path}</span>
-                            </div>
-                        `).join('')}
+                        ${opsWithDiff.map(op => {
+                            const actionLabel = op.action === 'create' ? 'TẠO MỚI' : op.action === 'edit' ? 'SỬA' : 'XÓA';
+                            const actionClass = op.action;
+                            let diffHtml = '';
+                            if (op.action === 'edit' && op.oldContent !== null) {
+                                const oldLines = op.oldContent.split('\n');
+                                const newLines = (op.content || '').split('\n');
+                                const maxShow = 20;
+                                const oldPreview = oldLines.slice(0, maxShow).map(l => `<span class="diff-line old">- ${this._escHtml(l)}</span>`).join('');
+                                const newPreview = newLines.slice(0, maxShow).map(l => `<span class="diff-line new">+ ${this._escHtml(l)}</span>`).join('');
+                                const truncated = oldLines.length > maxShow || newLines.length > maxShow ? '<span class="diff-truncated">... (đã cắt bớt)</span>' : '';
+                                diffHtml = `<div class="diff-preview"><div class="diff-old">${oldPreview}</div><div class="diff-new">${newPreview}</div>${truncated}</div>`;
+                            } else if (op.action === 'create') {
+                                const lines = (op.content || '').split('\n').slice(0, 15);
+                                diffHtml = `<div class="diff-preview"><div class="diff-new">${lines.map(l => `<span class="diff-line new">+ ${this._escHtml(l)}</span>`).join('')}</div></div>`;
+                            } else if (op.action === 'delete') {
+                                diffHtml = `<div class="diff-preview"><div class="diff-old"><span class="diff-line old">File sẽ bị xóa vĩnh viễn</span></div></div>`;
+                            }
+                            return `
+                                <div class="file-perm-item">
+                                    <div class="file-perm-item-header">
+                                        <span class="file-perm-action ${actionClass}">${actionLabel}</span>
+                                        <span class="file-perm-path">${op.path}</span>
+                                    </div>
+                                    ${diffHtml}
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                     <div class="file-perm-actions">
-                        <button class="file-perm-btn deny" id="filePermDeny">Từ chối</button>
-                        <button class="file-perm-btn allow" id="filePermAllow">Cho phép</button>
+                        <button class="file-perm-btn deny" id="filePermDeny">Từ chối tất cả</button>
+                        <button class="file-perm-btn allow" id="filePermAllow">Cho phép tất cả</button>
                     </div>
                 </div>
             `;
@@ -1247,6 +1621,34 @@ class AIPanel {
         this.updateContextDisplay();
     }
 
+    // Session fork (học từ OpenCode): branch từ message bất kỳ
+    forkSession(buttonEl) {
+        const msgDiv = buttonEl.closest('.ai-message');
+        if (!msgDiv) return;
+        // Find the message index in history by matching content
+        const content = msgDiv.querySelector('.ai-message-content')?.innerText;
+        const idx = this.history.findIndex(m => m.content === content);
+        if (idx < 0) return;
+        // Save current session
+        if (this.history.length > 2) {
+            this._saveCurrentSession();
+        }
+        // Fork: keep messages up to this point
+        this.history = this.history.slice(0, idx + 1);
+        this.saveHistory();
+        localStorage.setItem('deepcode-reset-count', '0');
+        // Re-render
+        const messages = document.querySelector('#aiColumn #aiMessages') || document.getElementById('aiMessages');
+        if (messages) {
+            messages.innerHTML = '';
+            for (const msg of this.history) {
+                this.addMessage(msg.content, msg.role);
+            }
+        }
+        this.updateContextDisplay();
+        this.addMessage('[Đã fork conversation từ message này]', 'system');
+    }
+
     async sendMessage() {
         const textarea = document.querySelector('#aiInput') || document.querySelector('#aiColumn textarea');
         if (textarea && textarea.value.trim()) {
@@ -1295,7 +1697,10 @@ class AIPanel {
             return;
         }
         if (message === '/token') {
-            const maxCtx = parseInt(localStorage.getItem('deepcode-context-limit')) || this.credits?.contextLimits?.maxContext || 4096;
+            const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+            const _tier = this.credits?.tier || 'free';
+            const _tierMax = tierMaxCtx[_tier] || 4096;
+            const maxCtx = _tierMax;
             const usedCtx = this._estimateTokens(this.history);
             const tier = this.credits?.tier || 'free';
             this.addMessage(`## Thống kê tokens\n- **Tier:** ${tier}\n- **Context đã dùng:** ${usedCtx} / ${maxCtx} tokens\n- **Tin nhắn trong lịch sử:** ${this.history.length}\n- **File đính kèm:** ${this.attachedFiles?.length || 0}`, 'assistant');
@@ -1311,7 +1716,41 @@ class AIPanel {
 
         const div = document.createElement('div');
         div.className = `ai-message ${role}`;
-        div.innerHTML = `<div class="ai-message-content">${this.formatContent(content)}</div>`;
+
+        if (role === 'assistant') {
+            const model = this.currentModel || 'deepcode-go';
+            const modelNames = { 'deepcode-go': 'DeepCode Go', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
+            const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
+            div.innerHTML = `
+                <div class="ai-msg-header">
+                    <span class="ai-model-name">${modelName}</span>
+                </div>
+                <div class="ai-message-content">${this.formatContent(content)}</div>
+                <div class="ai-activity-container"></div>
+                <div class="ai-msg-footer">
+                    <button class="ai-msg-action" title="Copy" onclick="navigator.clipboard.writeText(this.closest('.ai-message').querySelector('.ai-message-content').innerText)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="ai-msg-action" title="Regenerate" onclick="window._aiPanel?.regenerateLast()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    </button>
+                </div>
+            `;
+        } else if (role === 'system') {
+            div.innerHTML = `<div class="ai-message-content system-msg">${this.formatContent(content)}</div>`;
+        } else {
+            // User message — add fork button (session fork từ OpenCode)
+            div.innerHTML = `
+                <div class="ai-message-content">${this.formatContent(content)}</div>
+                <div class="ai-msg-footer">
+                    <button class="ai-msg-action fork-btn" title="Fork conversation from here" onclick="window._aiPanel?.forkSession(this)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/></svg>
+                        <span style="font-size:10px;margin-left:2px">Fork</span>
+                    </button>
+                </div>
+            `;
+        }
+
         messages?.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
         return div;
@@ -1321,8 +1760,33 @@ class AIPanel {
         if (streaming) {
             if (!el._lastUpdate || Date.now() - el._lastUpdate > 50) {
                 el._lastUpdate = Date.now();
-                const contentEl = el.querySelector('.ai-message-content');
-                if (contentEl) contentEl.innerHTML = this.formatContentLight(content);
+
+                if (!el._transformed) {
+                    el._transformed = true;
+                    this.hideTypingIndicator();
+                    const model = this.currentModel || 'deepcode-go';
+                    const modelNames = { 'deepcode-go': 'DeepCode Go', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
+                    const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
+                    el.innerHTML = `
+                        <div class="ai-msg-header">
+                            <span class="ai-model-name">${modelName}</span>
+                        </div>
+                        <div class="ai-message-content">${this.formatContentLight(content)}</div>
+                        <div class="ai-activity-container"></div>
+                        <div class="ai-msg-footer">
+                            <button class="ai-msg-action" title="Copy" onclick="navigator.clipboard.writeText(this.closest('.ai-message').querySelector('.ai-message-content').innerText)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            </button>
+                            <button class="ai-msg-action" title="Regenerate" onclick="window._aiPanel?.regenerateLast()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    const contentEl = el.querySelector('.ai-message-content');
+                    if (contentEl) contentEl.innerHTML = this.formatContentLight(content);
+                }
+
                 const messages = document.querySelector('#aiColumn #aiMessages') || document.getElementById('aiMessages');
                 if (messages) messages.scrollTop = messages.scrollHeight;
             }
@@ -1355,8 +1819,9 @@ class AIPanel {
         html = html.replace(/<think>([\s\S]*?)<\/think>/g, (match, content) => {
             const trimmed = content.trim();
             if (!trimmed) return '';
+            const escaped = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const id = placeholders.length;
-            placeholders.push(`<details class="ai-thinking"><summary>Suy nghĩ...</summary><div class="ai-thinking-content">${trimmed.replace(/\n/g, '<br>')}</div></details>`);
+            placeholders.push(`<details class="ai-thinking"><summary>Suy nghĩ...</summary><div class="ai-thinking-content">${escaped.replace(/\n/g, '<br>')}</div></details>`);
             return `__THINK_${id}__`;
         });
 
@@ -1383,7 +1848,14 @@ class AIPanel {
         const div = document.createElement('div');
         div.id = 'aiTypingIndicator';
         div.className = 'ai-message assistant';
-        div.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+        div.innerHTML = `
+            <div class="ai-msg-header">
+                <span class="ai-model-name ai-thinking">Đang suy nghĩ<span class="ai-thinking-dots"><span>.</span><span>.</span><span>.</span></span></span>
+            </div>
+            <div class="ai-message-content ai-thinking-content">
+                <div class="ai-thinking-pulse"></div>
+            </div>
+        `;
         messages?.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
     }
@@ -1409,6 +1881,22 @@ class AIPanel {
             return { isVague: true, suggistion: 'Yêu cầu có vẻ quá ngắn. Bạn có thể mô tả chi tiết hơn không?' };
         }
         return { isVague: false };
+    }
+
+    _isReviewRequest(message) {
+        const lower = message.toLowerCase();
+        const reviewKeywords = [
+            'review', 'đánh giá', 'kiểm tra', 'phân tích',
+            'audit', 'check code', 'xem code', 'đọc project',
+            'đọc code', 'analyze', 'security check', 'code review',
+            'tổng quan project', 'overview project', 'review project',
+            'kiểm tra project', 'phân tích project', 'đánh giá project',
+            'code audit', 'vulnerability', 'lỗ hổng', 'bảo mật',
+            'performance', 'hiệu suất', 'tối ưu',
+            'đọc hiểu', 'hiểu project', 'giới thiệu project', 'mô tả project',
+            'tổng quan code', 'xem xét', 'nhận xét',
+        ];
+        return reviewKeywords.some(kw => lower.includes(kw));
     }
 
     _recordPassport(action, path, content) {

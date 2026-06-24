@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepCode Admin Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0d0b14; color: #e0e0e0; min-height: 100vh; }
+
+        .layout { display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar { width: 240px; background: #13111a; border-right: 1px solid #2a2640; padding: 20px 0; position: fixed; height: 100vh; overflow-y: auto; }
+        .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid #2a2640; }
+        .sidebar-logo h2 { color: #a78bfa; font-size: 18px; }
+        .sidebar-logo span { color: #666; font-size: 11px; }
+        .sidebar-nav { padding: 12px 0; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #888; cursor: pointer; transition: all 0.15s; font-size: 13px; }
+        .nav-item:hover { background: rgba(167,139,250,0.08); color: #e0e0e0; }
+        .nav-item.active { background: rgba(167,139,250,0.15); color: #a78bfa; border-right: 2px solid #a78bfa; }
+        .nav-item svg { width: 16px; height: 16px; }
+
+        /* Main */
+        .main { margin-left: 240px; flex: 1; padding: 24px; }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: #1a1726; border: 1px solid #2a2640; border-radius: 8px; padding: 16px; }
+        .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: #e0e0e0; margin-top: 4px; }
+        .stat-sub { font-size: 11px; color: #666; margin-top: 2px; }
+
+        /* Table */
+        .table-container { background: #1a1726; border: 1px solid #2a2640; border-radius: 8px; overflow: hidden; }
+        .table-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #2a2640; }
+        .table-header h3 { font-size: 14px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 10px 16px; font-size: 11px; color: #888; text-transform: uppercase; border-bottom: 1px solid #2a2640; }
+        td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #1e1b2e; }
+        tr:hover { background: rgba(167,139,250,0.04); }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .badge-free { background: #2a2640; color: #888; }
+        .badge-pro { background: rgba(124,92,252,0.2); color: #a78bfa; }
+        .badge-premium { background: rgba(245,158,11,0.2); color: #f59e0b; }
+        .badge-business { background: rgba(34,197,94,0.2); color: #22c55e; }
+        .badge-active { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .badge-blocked { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+        /* Buttons */
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+        .btn-primary { background: #a78bfa; color: white; }
+        .btn-primary:hover { background: #8b5cf6; }
+        .btn-danger { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .btn-danger:hover { background: rgba(239,68,68,0.25); }
+        .btn-success { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .btn-success:hover { background: rgba(34,197,94,0.25); }
+        .btn-sm { padding: 4px 8px; font-size: 11px; }
+        .btn-group { display: flex; gap: 6px; }
+
+        /* Forms */
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 11px; color: #888; text-transform: uppercase; }
+        .form-group input, .form-group select { background: #0d0b14; border: 1px solid #2a2640; color: #e0e0e0; padding: 8px 10px; border-radius: 4px; font-size: 13px; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #a78bfa; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #1a1726; border: 1px solid #2a2640; border-radius: 8px; padding: 24px; min-width: 400px; max-width: 500px; }
+        .modal h3 { margin-bottom: 16px; font-size: 16px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; z-index: 2000; display: none; }
+    </style>
+</head>
+<body>
+    <!-- Admin Login Overlay -->
+    <div id="adminLoginOverlay" style="position:fixed;inset:0;background:#0d0b14;display:flex;align-items:center;justify-content:center;z-index:9999;">
+        <div style="width:360px;padding:32px;background:#13111a;border:1px solid #2a2640;border-radius:12px;text-align:center;">
+            <div style="margin-bottom:24px;">
+                <svg width="48" height="48" viewBox="0 0 128 128">
+                    <defs><linearGradient id="adminLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c5cfc"/><stop offset="100%" style="stop-color:#a78bfa"/></linearGradient></defs>
+                    <rect x="28" y="32" width="72" height="60" rx="16" fill="url(#adminLogoGrad)"/>
+                    <rect x="36" y="40" width="56" height="44" rx="10" fill="#1a1828"/>
+                    <ellipse cx="50" cy="56" rx="8" ry="9" fill="#7c5cfc"/>
+                    <ellipse cx="50" cy="54" rx="4" ry="5" fill="white"/>
+                </svg>
+            </div>
+            <h2 style="color:#a78bfa;font-size:18px;margin-bottom:4px;">DeepCode Admin</h2>
+            <p style="color:#666;font-size:12px;margin-bottom:20px;">Nhập mã xác thực từ email</p>
+            <input type="text" id="adminTokenInput" placeholder="Dán mã xác thực vào đây" style="width:100%;padding:10px 14px;border:1px solid #2a2640;border-radius:8px;background:#0d0b14;color:#e0e0e0;font-size:13px;margin-bottom:10px;box-sizing:border-box;font-family:monospace;" />
+            <p id="adminLoginError" style="color:#ef4444;font-size:12px;margin-bottom:10px;display:none;"></p>
+            <button id="adminLoginBtn" style="width:100%;padding:10px;border:none;border-radius:8px;background:#7c5cfc;color:white;font-size:13px;font-weight:600;cursor:pointer;">Xác nhận</button>
+        </div>
+    </div>
+
+    <div class="layout" id="adminContent">
+        <nav class="sidebar">
+            <div class="sidebar-logo">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+                    <div style="width:28px;height:28px;background:linear-gradient(135deg,#a78bfa,#7c5cfc);border-radius:8px;display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </div>
+                    <h2>DeepCode Admin</h2>
+                </div>
+                <span>Management Panel</span>
+            </div>
+            <div class="sidebar-nav">
+                <div class="nav-item active" data-page="dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    Dashboard
+                </div>
+                <div class="nav-item" data-page="users">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Users
+                </div>
+                <div class="nav-item" data-page="settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    Settings
+                </div>
+            </div>
+        </nav>
+
+        <main class="main">
+            <!-- Dashboard -->
+            <div class="page active" id="page-dashboard">
+                <h2 style="margin-bottom:20px;">Dashboard</h2>
+                <div class="stats-grid" id="statsGrid"></div>
+            </div>
+
+            <!-- Users -->
+            <div class="page" id="page-users">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h2>User Management</h2>
+                    <button class="btn btn-primary" onclick="showAddUserModal()">+ Add User</button>
+                </div>
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3 id="userCount">0 users</h3>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="userSearch" placeholder="Search users..." style="background:#0d0b14;border:1px solid #2a2640;color:#e0e0e0;padding:6px 10px;border-radius:4px;font-size:12px;" oninput="filterUsers()">
+                            <select id="userFilter" style="background:#0d0b14;border:1px solid #2a2640;color:#e0e0e0;padding:6px;border-radius:4px;font-size:12px;" onchange="filterUsers()">
+                                <option value="all">All</option>
+                                <option value="active">Active</option>
+                                <option value="blocked">Blocked</option>
+                                <option value="free">Free</option>
+                                <option value="pro">PRO</option>
+                                <option value="premium">Premium</option>
+                                <option value="business">Business</option>
+                            </select>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Name</th>
+                                <th>Tier</th>
+                                <th>Status</th>
+                                <th>Requests Today</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="page" id="page-settings">
+                <h2 style="margin-bottom:20px;">Cài đặt</h2>
+                <div style="background:#1a1726;border:1px solid #2a2640;border-radius:8px;padding:20px;max-width:500px;">
+                    <h3 style="font-size:14px;margin-bottom:16px;color:#a78bfa;">Cloudflare (DeepCode Ultra)</h3>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label>Cloudflare Account ID</label>
+                        <input type="text" id="cfAccountId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    </div>
+                    <div id="cfStatus" style="font-size:12px;margin-bottom:12px;"></div>
+                    <button class="btn btn-primary" onclick="saveCfConfig()">Lưu cấu hình Cloudflare</button>
+
+                    <hr style="border:1px solid #2a2640;margin:20px 0;">
+
+                    <h3 style="font-size:14px;margin-bottom:16px;color:#a78bfa;">Cấu hình Email (Gửi mã session)</h3>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label>Email Gmail</label>
+                        <input type="email" id="emailUser" placeholder="your-email@gmail.com">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label>App Password (Mật khẩu ứng dụng)</label>
+                        <input type="password" id="emailPassword" placeholder="xxxx xxxx xxxx xxxx">
+                        <span style="font-size:10px;color:#888;">Tạo tại: myaccount.google.com → Security → App passwords</span>
+                    </div>
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label>Email nhận mã</label>
+                        <input type="email" id="emailAdmin" placeholder="phucasgaming@gmail.com">
+                    </div>
+                    <div id="emailStatus" style="font-size:12px;margin-bottom:12px;"></div>
+                    <button class="btn btn-primary" onclick="saveEmailConfig()">Lưu cấu hình email</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal">
+            <h3>Add User</h3>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>User ID</label>
+                <input type="text" id="newUserId" placeholder="e.g. github_12345">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Name</label>
+                <input type="text" id="newUserName" placeholder="User name">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Email</label>
+                <input type="email" id="newUserEmail" placeholder="user@email.com">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Tier</label>
+                <select id="newUserTier">
+                    <option value="free">Free</option>
+                    <option value="pro">PRO</option>
+                    <option value="premium">Premium</option>
+                    <option value="business">Business</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('addUserModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="addUser()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal-overlay" id="editUserModal">
+        <div class="modal">
+            <h3>Edit User</h3>
+            <input type="hidden" id="editUserId">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Tier</label>
+                <select id="editUserTier">
+                    <option value="free">Free</option>
+                    <option value="pro">PRO</option>
+                    <option value="premium">Premium</option>
+                    <option value="business">Business</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Notes</label>
+                <input type="text" id="editUserNotes" placeholder="Admin notes">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('editUserModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveUserEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Block User Modal -->
+    <div class="modal-overlay" id="blockUserModal">
+        <div class="modal">
+            <h3>Block User</h3>
+            <input type="hidden" id="blockUserId">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Lý do block (tuỳ chọn)</label>
+                <input type="text" id="blockReason" placeholder="Spam, abuse...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('blockUserModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmBlockUser()">Block</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete User Modal -->
+    <div class="modal-overlay" id="deleteUserModal">
+        <div class="modal">
+            <h3>Delete User</h3>
+            <input type="hidden" id="deleteUserId">
+            <p style="color:#ef4444;font-size:13px;margin-bottom:16px;">Hành động này không thể hoàn tác. User sẽ bị xóa vĩnh viễn khỏi Firebase.</p>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('deleteUserModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeleteUser()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="firebase.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

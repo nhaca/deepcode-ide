@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://llm.atxp.ai; img-src 'self' data:; worker-src 'self' blob:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://llm.atxp.ai https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com https://api.github.com https://github.com https://zenmux.ai https://openrouter.ai https://api.cloudflare.com https://deepcode-gateway.vercel.app; img-src 'self' data: https:; worker-src 'self' blob:;">
     <title>DeepCode IDE</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -202,6 +202,43 @@
                                 <option value="16384">16K tokens</option>
                                 <option value="32768">32K tokens</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <h3>Quyền AI (Granular — học từ OpenCode)</h3>
+                        <div class="settings-item">
+                            <label>Đọc file</label>
+                            <select id="settingsReadPerm">
+                                <option value="allow">Luôn cho phép</option>
+                                <option value="ask">Hỏi mỗi lần</option>
+                                <option value="deny">Luôn từ chối</option>
+                            </select>
+                        </div>
+                        <div class="settings-item">
+                            <label>Tạo/Sửa file</label>
+                            <select id="settingsFilePerm">
+                                <option value="ask">Hỏi mỗi lần</option>
+                                <option value="auto">Tự động chấp nhận</option>
+                                <option value="deny">Luôn từ chối</option>
+                            </select>
+                        </div>
+                        <div class="settings-item">
+                            <label>Xóa file</label>
+                            <select id="settingsDeletePerm">
+                                <option value="ask">Hỏi mỗi lần</option>
+                                <option value="deny">Luôn từ chối</option>
+                            </select>
+                        </div>
+                        <div class="settings-item">
+                            <label>Terminal command</label>
+                            <select id="settingsTermPerm">
+                                <option value="ask">Hỏi mỗi lần</option>
+                                <option value="auto">Tự động chấp nhận</option>
+                                <option value="deny">Luôn từ chối</option>
+                            </select>
+                        </div>
+                        <div class="settings-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                            Plan/Review mode luôn chặn ghi file và terminal dù setting là gì.
                         </div>
                     </div>
                     <div class="settings-group">
@@ -434,6 +471,7 @@
     <script src="terminal.js"></script>
     <script src="git-panel.js"></script>
     <script src="command-palette.js"></script>
+    <script src="firebase.js"></script>
     <script src="ai-backend.js"></script>
     <script src="ai-panel.js"></script>
     <script src="search.js"></script>

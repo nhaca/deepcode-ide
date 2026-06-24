@@ -2,12 +2,22 @@ class GitPanel {
     constructor(container) {
         this.container = container;
         this.status = null;
+        this.repoPath = null;
         this.render();
     }
 
     render() {
         this.container.innerHTML = `
             <div class="git-panel-content">
+                <div class="git-section">
+                    <div class="git-section-header">
+                        <span>CLONE REPO</span>
+                    </div>
+                    <div class="git-clone-box">
+                        <input type="text" id="gitCloneUrl" class="git-input" placeholder="https://github.com/user/repo.git" style="width:100%;margin-bottom:6px;" />
+                        <button class="git-action-btn primary" id="gitCloneBtn" style="width:100%;">Clone</button>
+                    </div>
+                </div>
                 <div class="git-section">
                     <div class="git-section-header">
                         <span>CHANGES</span>
@@ -35,6 +45,52 @@ class GitPanel {
                 </div>
                 <div class="git-section">
                     <div class="git-section-header">
+                        <span>SYNC</span>
+                    </div>
+                    <div class="git-sync-box">
+                        <button class="git-sync-btn" id="gitPushBtn" title="Push lên GitHub">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                            Push
+                        </button>
+                        <button class="git-sync-btn" id="gitPullBtn" title="Pull từ GitHub">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                            Pull
+                        </button>
+                        <button class="git-sync-btn" id="gitFetchBtn" title="Fetch từ remote">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12"/></svg>
+                            Fetch
+                        </button>
+                    </div>
+                    <div class="git-sync-status" id="gitSyncStatus"></div>
+                </div>
+                <div class="git-section">
+                    <div class="git-section-header">
+                        <span>REMOTE</span>
+                        <button class="git-action-btn" id="gitRemoteToggle" title="Cài đặt remote">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </button>
+                    </div>
+                    <div class="git-remote-info" id="gitRemoteInfo">
+                        <div class="git-empty">Chưa cấu hình remote</div>
+                    </div>
+                    <div class="git-remote-form" id="gitRemoteForm" style="display:none;">
+                        <input type="text" id="gitRemoteUrl" placeholder="https://github.com/user/repo.git" class="git-input" />
+                        <button class="git-action-btn primary" id="gitRemoteSaveBtn">Lưu</button>
+                    </div>
+                </div>
+                <div class="git-section">
+                    <div class="git-section-header">
+                        <span>GITHUB</span>
+                    </div>
+                    <div class="git-github-box" id="gitGithubBox">
+                        <div id="gitGithubStatus">
+                            <div class="git-empty">Đăng nhập GitHub để sync</div>
+                        </div>
+                        <button class="git-action-btn" id="gitGithubLoginBtn">Đăng nhập GitHub</button>
+                    </div>
+                </div>
+                <div class="git-section">
+                    <div class="git-section-header">
                         <span>BRANCHES</span>
                     </div>
                     <div class="git-branches-list" id="gitBranchesList">
@@ -47,23 +103,39 @@ class GitPanel {
 
     async refresh(repoPath) {
         if (!repoPath) return;
+        this.repoPath = repoPath;
 
         const status = await window.api.git.status(repoPath);
         if (status.notGitRepo) {
-            this.showNotGitRepo();
+            this.showNotGitRepo(repoPath);
             return;
         }
 
         this.status = status;
         this.renderChanges(status);
         this.renderBranches(repoPath);
+        this.renderRemote(repoPath);
+        this.checkGithubAuth();
         this.setupEvents(repoPath);
     }
 
-    showNotGitRepo() {
+    showNotGitRepo(repoPath) {
         const changesList = document.getElementById('gitChangesList');
         if (changesList) {
-            changesList.innerHTML = '<div class="git-empty">Not a git repository</div>';
+            changesList.innerHTML = `
+                <div class="git-empty">
+                    <p>Not a git repository</p>
+                    <button class="git-init-btn" id="gitInitBtn">Initialize Git Repository</button>
+                </div>
+            `;
+            document.getElementById('gitInitBtn')?.addEventListener('click', async () => {
+                const result = await window.api.git.init(repoPath);
+                if (result.success) {
+                    this.refresh(repoPath);
+                } else {
+                    alert('Failed to init git: ' + result.error);
+                }
+            });
         }
     }
 
@@ -148,9 +220,187 @@ class GitPanel {
             .join('');
     }
 
+    async renderRemote(repoPath) {
+        const remoteInfo = document.getElementById('gitRemoteInfo');
+        if (!remoteInfo) return;
+
+        const remotes = await window.api.git.getRemotes(repoPath);
+        if (remotes.error || !remotes || remotes.length === 0) {
+            remoteInfo.innerHTML = '<div class="git-empty">Chưa cấu hình remote</div>';
+            return;
+        }
+
+        const origin = remotes.find(r => r.name === 'origin');
+        if (origin) {
+            remoteInfo.innerHTML = `
+                <div class="git-remote-item">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    <span class="git-remote-url">${origin.refs?.push || origin.refs?.fetch || 'origin'}</span>
+                </div>
+            `;
+        } else {
+            remoteInfo.innerHTML = remotes.map(r => `
+                <div class="git-remote-item">
+                    <span>${r.name}: ${r.refs?.push || r.refs?.fetch || ''}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    async checkGithubAuth() {
+        const gh = await window.api.github.getToken();
+        const statusEl = document.getElementById('gitGithubStatus');
+        const loginBtn = document.getElementById('gitGithubLoginBtn');
+        if (!statusEl || !loginBtn) return;
+
+        if (gh.token && gh.username) {
+            statusEl.innerHTML = `<div class="git-github-connected">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                <span>${gh.username}</span>
+            </div>
+            <div style="margin-top:6px;display:flex;gap:6px;">
+                <button class="git-action-btn primary" id="gitCreateRepoBtn" style="flex:1;">Tạo repo mới</button>
+            </div>
+            <div class="git-create-repo-form" id="gitCreateRepoForm" style="display:none;margin-top:6px;">
+                <input type="text" id="ghRepoName" class="git-input" placeholder="Tên repo" style="width:100%;margin-bottom:4px;" />
+                <input type="text" id="ghRepoDesc" class="git-input" placeholder="Mô tả (tùy chọn)" style="width:100%;margin-bottom:4px;" />
+                <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;margin-bottom:6px;">
+                    <input type="checkbox" id="ghRepoPrivate" /> Private repo
+                </label>
+                <button class="git-action-btn primary" id="ghRepoCreateConfirm" style="width:100%;">Tạo &amp; kết nối</button>
+            </div>`;
+            loginBtn.textContent = 'Đăng xuất';
+            loginBtn.onclick = async () => {
+                await window.api.github.saveToken('', '');
+                this.checkGithubAuth();
+            };
+            document.getElementById('gitCreateRepoBtn')?.addEventListener('click', () => {
+                const form = document.getElementById('gitCreateRepoForm');
+                if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            });
+            document.getElementById('ghRepoCreateConfirm')?.addEventListener('click', async () => {
+                const name = document.getElementById('ghRepoName')?.value.trim();
+                if (!name) return;
+                const desc = document.getElementById('ghRepoDesc')?.value.trim();
+                const isPrivate = document.getElementById('ghRepoPrivate')?.checked;
+                const result = await window.api.github.createRepo(name, desc, isPrivate);
+                if (result.success) {
+                    if (this.repoPath) {
+                        await window.api.git.addRemote(this.repoPath, 'origin', result.url);
+                        this.renderRemote(this.repoPath);
+                    }
+                    document.getElementById('gitCreateRepoForm').style.display = 'none';
+                    alert(`Repo tạo thành công: ${result.html_url}`);
+                } else {
+                    alert('Lỗi: ' + result.error);
+                }
+            });
+        } else {
+            statusEl.innerHTML = '<div class="git-empty">Kết nối GitHub để sync code</div>';
+            loginBtn.textContent = 'Kết nối GitHub';
+            loginBtn.onclick = () => this.startDeviceFlow();
+        }
+    }
+
+    async startDeviceFlow() {
+        const statusEl = document.getElementById('gitGithubStatus');
+        const loginBtn = document.getElementById('gitGithubLoginBtn');
+        if (!statusEl || !loginBtn) return;
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Đang lấy mã...';
+
+        const codeData = await window.api.github.requestDeviceCode();
+        if (codeData.error) {
+            statusEl.innerHTML = `<div class="git-empty" style="color:var(--accent-red);">Lỗi: ${codeData.error_description || codeData.error}</div>`;
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Kết nối GitHub';
+            return;
+        }
+
+        const userCode = codeData.user_code;
+        const verifyUrl = codeData.verification_uri;
+        const interval = (codeData.interval || 5) * 1000;
+        const expiresIn = codeData.expires_in || 900;
+
+        statusEl.innerHTML = `
+            <div class="git-device-flow">
+                <div style="margin-bottom:6px;font-size:11px;color:var(--text-secondary);">Mở link và nhập mã:</div>
+                <div class="git-device-code">${userCode}</div>
+                <div style="margin-top:4px;">
+                    <span class="git-link" onclick="window.electronAPI?.openExternal('${verifyUrl}')">${verifyUrl}</span>
+                </div>
+                <div style="margin-top:6px;font-size:10px;color:var(--text-muted);" id="ghPollStatus">Đang chờ xác nhận...</div>
+            </div>
+        `;
+        loginBtn.textContent = 'Hủy';
+        loginBtn.disabled = false;
+        loginBtn.onclick = () => {
+            this._deviceFlowAborted = true;
+            this.checkGithubAuth();
+        };
+
+        this._deviceFlowAborted = false;
+        const startTime = Date.now();
+        const maxWait = expiresIn * 1000;
+
+        const poll = async () => {
+            if (this._deviceFlowAborted) return;
+            if (Date.now() - startTime > maxWait) {
+                statusEl.innerHTML = '<div class="git-empty" style="color:var(--accent-red);">Hết thời gian. Thử lại.</div>';
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Kết nối GitHub';
+                loginBtn.onclick = () => this.startDeviceFlow();
+                return;
+            }
+
+            const result = await window.api.github.pollToken(codeData.device_code);
+
+            if (result.success) {
+                this.checkGithubAuth();
+                return;
+            }
+
+            if (result.error === 'authorization_pending') {
+                setTimeout(poll, interval);
+            } else if (result.error === 'slow_down') {
+                setTimeout(poll, (codeData.interval || 5) + 5000);
+            } else if (result.error === 'expired_token') {
+                statusEl.innerHTML = '<div class="git-empty" style="color:var(--accent-red);">Mã hết hạn. Thử lại.</div>';
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Kết nối GitHub';
+                loginBtn.onclick = () => this.startDeviceFlow();
+            } else if (result.error === 'access_denied') {
+                statusEl.innerHTML = '<div class="git-empty" style="color:var(--accent-red);">Bạn đã từ chối quyền.</div>';
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Kết nối GitHub';
+                loginBtn.onclick = () => this.startDeviceFlow();
+            } else {
+                const pollStatus = document.getElementById('ghPollStatus');
+                if (pollStatus) pollStatus.textContent = `Lỗi: ${result.error}. Đang thử lại...`;
+                setTimeout(poll, interval);
+            }
+        };
+
+        setTimeout(poll, interval);
+    }
+
     setupEvents(repoPath) {
         document.getElementById('gitRefreshBtn')?.addEventListener('click', () => {
             this.refresh(repoPath);
+        });
+
+        document.getElementById('gitCloneBtn')?.addEventListener('click', async () => {
+            const url = document.getElementById('gitCloneUrl')?.value.trim();
+            if (!url) return;
+            const folderName = url.split('/').pop().replace('.git', '');
+            const destPath = repoPath ? `${repoPath}/${folderName}` : folderName;
+            const result = await window.api.git.clone(url, destPath);
+            if (result.success) {
+                alert(`Clone thành công: ${result.path}`);
+            } else {
+                alert('Lỗi clone: ' + result.error);
+            }
         });
 
         document.querySelectorAll('.git-change-action').forEach((btn) => {
@@ -185,6 +435,45 @@ class GitPanel {
                     this.refresh(repoPath);
                 }
             });
+        });
+
+        document.getElementById('gitPushBtn')?.addEventListener('click', async () => {
+            const statusEl = document.getElementById('gitSyncStatus');
+            if (statusEl) statusEl.textContent = 'Đang push...';
+            const result = await window.api.git.push(repoPath, 'origin');
+            if (statusEl) statusEl.textContent = result.success ? 'Push thành công!' : `Lỗi: ${result.error}`;
+            setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+            this.refresh(repoPath);
+        });
+
+        document.getElementById('gitPullBtn')?.addEventListener('click', async () => {
+            const statusEl = document.getElementById('gitSyncStatus');
+            if (statusEl) statusEl.textContent = 'Đang pull...';
+            const result = await window.api.git.pull(repoPath, 'origin');
+            if (statusEl) statusEl.textContent = result.success ? 'Pull thành công!' : `Lỗi: ${result.error}`;
+            setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+            this.refresh(repoPath);
+        });
+
+        document.getElementById('gitFetchBtn')?.addEventListener('click', async () => {
+            const statusEl = document.getElementById('gitSyncStatus');
+            if (statusEl) statusEl.textContent = 'Đang fetch...';
+            const result = await window.api.git.fetch(repoPath, 'origin');
+            if (statusEl) statusEl.textContent = result.success ? 'Fetch thành công!' : `Lỗi: ${result.error}`;
+            setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+        });
+
+        document.getElementById('gitRemoteToggle')?.addEventListener('click', () => {
+            const form = document.getElementById('gitRemoteForm');
+            if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        });
+
+        document.getElementById('gitRemoteSaveBtn')?.addEventListener('click', async () => {
+            const url = document.getElementById('gitRemoteUrl')?.value.trim();
+            if (!url) return;
+            await window.api.git.addRemote(repoPath, 'origin', url);
+            document.getElementById('gitRemoteForm').style.display = 'none';
+            this.renderRemote(repoPath);
         });
     }
 }
