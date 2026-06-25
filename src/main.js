@@ -7,6 +7,45 @@ const { GitManager } = require('./git');
 const { AdminDB } = require('./admin-db');
 const { EmailSender } = require('./email-sender');
 
+// ========== Custom Protocol: deepcode:// ==========
+// Register protocol before app is ready
+if (!app.isDefaultProtocolClient('deepcode')) {
+    app.setAsDefaultProtocolClient('deepcode');
+}
+
+// Handle protocol callback (Windows/Linux)
+app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleProtocolUrl(url);
+});
+
+function handleProtocolUrl(url) {
+    // deepcode://oauth/callback?code=xxx&state=yyy
+    try {
+        const parsed = new URL(url);
+        if (parsed.pathname === '/oauth/callback') {
+            const code = parsed.searchParams.get('code');
+            const state = parsed.searchParams.get('state');
+            const error = parsed.searchParams.get('error');
+            
+            if (error) {
+                mainWindow?.webContents.send('oauth-callback', { 
+                    provider: pendingOAuthProvider, 
+                    error 
+                });
+            } else if (code && pendingOAuthResolve) {
+                pendingOAuthResolve({ code, state });
+            }
+        }
+    } catch (e) {
+        console.error('Protocol parse error:', e.message);
+    }
+}
+
+// Store pending OAuth state
+let pendingOAuthProvider = null;
+let pendingOAuthResolve = null;
+
 const gitManager = new GitManager();
 const adminDB = new AdminDB(app.getPath('userData'));
 const emailSender = new EmailSender(app.getPath('userData'));
@@ -631,6 +670,13 @@ if (process.platform === 'win32') {
         app.whenReady().then(() => handleProtocolUrl(protocolUrl));
     }
 }
+
+// Ensure protocol is registered on first run
+app.whenReady().then(() => {
+    if (!app.isDefaultProtocolClient('deepcode')) {
+        app.setAsDefaultProtocolClient('deepcode');
+    }
+});
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -1864,52 +1910,38 @@ ipcMain.handle('security:get-ban-status', () => {
     return { banned: wid ? isBanned(wid) : false };
 });
 
-// ========== FIREBASE OAuth ==========
-const http = require('http');
-const url = require('url');
+// ========== FIREBASE OAuth (Custom Protocol) ==========
+const PROTOCOL_REDIRECT_URI = 'deepcode://oauth/callback';
 
 const GOOGLE_CLIENT_ID = _secrets.google?.clientId || '';
 const GOOGLE_CLIENT_SECRET = _secrets.google?.clientSecret || '';
 const GITHUB_CLIENT_SECRET = _secrets.github?.clientSecret || '';
 const FIREBASE_API_KEY = _secrets.firebase?.apiKey || '';
 
-function createOAuthServer() {
-    return new Promise((resolve, reject) => {
-        const server = http.createServer();
-        server.on('error', (e) => reject(e));
-        server.listen(3000, '127.0.0.1', () => {
-            resolve({ server, port: 3000, redirectUri: 'http://127.0.0.1:3000/callback' });
-        });
-    });
-}
-
-function waitForCallback(server) {
+function waitForOAuthCallback() {
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            server.close();
+            pendingOAuthResolve = null;
+            pendingOAuthProvider = null;
             reject(new Error('OAuth timeout'));
         }, 120000);
-
-        server.on('request', (req, res) => {
-            const parsed = url.parse(req.url, true);
-            if (parsed.pathname === '/callback') {
-                clearTimeout(timeout);
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end('<html><body style="background:#0d0b14;color:white;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;"><h2>Đăng nhập thành công! Bạn có thể đóng tab này.</h2></body></html>');
-                server.close();
-                resolve(parsed.query);
-            }
-        });
+        
+        pendingOAuthResolve = (params) => {
+            clearTimeout(timeout);
+            pendingOAuthResolve = null;
+            pendingOAuthProvider = null;
+            resolve(params);
+        };
     });
 }
 
 ipcMain.handle('oauth-google', async () => {
     try {
-        const { server, port, redirectUri } = await createOAuthServer();
+        pendingOAuthProvider = 'google';
         const state = crypto.randomBytes(16).toString('hex');
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&state=${state}&prompt=select_account`;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(PROTOCOL_REDIRECT_URI)}&response_type=code&scope=openid%20email%20profile&state=${state}&prompt=select_account`;
         shell.openExternal(authUrl);
-        const params = await waitForCallback(server);
+        const params = await waitForOAuthCallback();
         if (params.code) {
             const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
                 method: 'POST',
@@ -1918,7 +1950,7 @@ ipcMain.handle('oauth-google', async () => {
                     code: params.code,
                     client_id: GOOGLE_CLIENT_ID,
                     client_secret: GOOGLE_CLIENT_SECRET,
-                    redirect_uri: redirectUri,
+                    redirect_uri: PROTOCOL_REDIRECT_URI,
                     grant_type: 'authorization_code',
                 }).toString(),
             });
@@ -1938,11 +1970,11 @@ ipcMain.handle('oauth-google', async () => {
 
 ipcMain.handle('oauth-github', async () => {
     try {
-        const { server, port, redirectUri } = await createOAuthServer();
+        pendingOAuthProvider = 'github';
         const state = crypto.randomBytes(16).toString('hex');
-        const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user&state=${state}`;
+        const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(PROTOCOL_REDIRECT_URI)}&scope=read:user&state=${state}`;
         shell.openExternal(authUrl);
-        const params = await waitForCallback(server);
+        const params = await waitForOAuthCallback();
         if (params.code) {
             const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
                 method: 'POST',

@@ -18,6 +18,12 @@
     "xterm-addon-fit": "^0.8.0",
     "xterm-addon-webgl": "^0.16.0"
   },
+  "build": {
+    "protocols": {
+      "name": "DeepCode Protocol",
+      "schemes": ["deepcode"]
+    }
+  },
   "author": "DeepCode Team",
   "license": "MIT"
 }
