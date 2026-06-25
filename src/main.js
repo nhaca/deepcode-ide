@@ -1799,9 +1799,6 @@ ipcMain.handle('github-models:list', async () => {
     if (!gh.token) return { models: [], connected: false };
     return { models: GITHUB_MODELS, connected: true, username: gh.username };
 });
-    if (!gh.token) return { models: [], connected: false };
-    return { models: GITHUB_MODELS, connected: true, username: gh.username };
-});
 
 // ========== ADMIN IPC Handlers ==========
 ipcMain.handle('admin:get-users', () => adminDB.getAllUsers());
