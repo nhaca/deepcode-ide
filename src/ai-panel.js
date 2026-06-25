@@ -1124,6 +1124,12 @@ class AIPanel {
                     fullContent = response.content;
                     this.hideTypingIndicator();
                     this.updateMessage(responseEl, fullContent);
+                    // Play notification sound
+                    try {
+                        const audio = new Audio('../notification.mp3');
+                        audio.volume = 0.5;
+                        audio.play().catch(() => {});
+                    } catch (e) {}
                 } else {
                     let buffer = '';
                     const reader = response.getReader();
@@ -1161,6 +1167,13 @@ class AIPanel {
                     }
                     this.updateMessage(responseEl, fullContent, false);
                 }
+
+                // Play notification sound when AI response completes
+                try {
+                    const audio = new Audio('../notification.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(() => {});
+                } catch (e) {}
 
                 const fileOps = this.parseFileOperations(fullContent);
                 if (fileOps.length > 0) {
