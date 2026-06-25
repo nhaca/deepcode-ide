@@ -328,11 +328,11 @@ class AIPanel {
         document.getElementById('creditsTier').textContent = tierNames[tier] || tier;
 
         const used = this.credits.creditsUsed || 0;
-        const perDay = this.credits.creditsPerDay || 0;
+        const perMonth = this.credits.creditsPerMonth || this.credits.limit || 100;
 
         document.getElementById('creditsUsed').textContent = used;
-        document.getElementById('creditsTotal').textContent = perDay === 999999 ? '∞' : perDay;
-        const percent = perDay === 999999 ? 0 : (used / perDay) * 100;
+        document.getElementById('creditsTotal').textContent = perMonth;
+        const percent = perMonth > 0 ? (used / perMonth) * 100 : 0;
         document.getElementById('creditsBarFill').style.width = `${Math.min(100, percent)}%`;
 
         const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };

@@ -368,10 +368,6 @@ class UnifiedClient {
         }
         return models.length > 0 ? models : [{ id: 'auto', name: 'DeepCode' }];
     }
-            // Fallback: empty list
-            return [];
-        }
-    }
 
     async getCredits() {
         const p = getProvider();
