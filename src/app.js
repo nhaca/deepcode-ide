@@ -80,6 +80,9 @@ class DeepCodeIDE {
         this.setupResize();
         this.setupSettingsModal();
         this.setupContextMenu();
+        this.setupPackagePanel();
+        this.setupExtensionsPanel();
+        this.setupThemeSelector();
         this.restoreLastFolder();
     }
 
@@ -127,21 +130,28 @@ class DeepCodeIDE {
                 btn.classList.add('active');
 
                 const gitSection = document.getElementById('gitPanelSection');
-                const fileTreeSection = document.querySelector('.sidebar-section.flex-1:not(#gitPanelSection)');
+                const fileTreeSection = document.querySelector('.sidebar-section.flex-1:not(#gitPanelSection):not(#packagePanelSection):not(#extensionsPanelSection):not(#searchPanelSection)');
+                const searchSection = document.getElementById('searchPanelSection');
+                const packageSection = document.getElementById('packagePanelSection');
+                const extensionsSection = document.getElementById('extensionsPanelSection');
+
+                [gitSection, fileTreeSection, searchSection, packageSection, extensionsSection].forEach(s => {
+                    if (s) s.style.display = 'none';
+                });
 
                 if (panel === 'git') {
                     gitSection.style.display = 'flex';
-                    fileTreeSection.style.display = 'none';
-                    document.getElementById('searchPanelSection').style.display = 'none';
                     this.refreshGitStatus();
                 } else if (panel === 'explorer') {
-                    gitSection.style.display = 'none';
                     fileTreeSection.style.display = 'flex';
-                    document.getElementById('searchPanelSection').style.display = 'none';
                 } else if (panel === 'search') {
-                    gitSection.style.display = 'none';
-                    fileTreeSection.style.display = 'none';
-                    document.getElementById('searchPanelSection').style.display = 'flex';
+                    searchSection.style.display = 'flex';
+                } else if (panel === 'packages') {
+                    packageSection.style.display = 'flex';
+                    this.refreshPackagePanel();
+                } else if (panel === 'extensions') {
+                    extensionsSection.style.display = 'flex';
+                    this.refreshExtensionsPanel();
                 }
             };
         });
@@ -157,6 +167,14 @@ class DeepCodeIDE {
     setupEditorContainer() {
         this.editorContainer = document.getElementById('editorContainer');
         console.log('Editor container:', this.editorContainer);
+        const splitBtn = document.getElementById('splitEditorBtn');
+        if (splitBtn) {
+            splitBtn.addEventListener('click', () => {
+                if (this.editorManager) {
+                    this.editorManager.toggleSplit();
+                }
+            });
+        }
     }
 
     setupStateSubscriptions() {
@@ -316,6 +334,37 @@ class DeepCodeIDE {
             if (!this.editorManager) {
                 this.editorManager = new EditorManager(this.editorContainer);
                 await this.editorManager.init();
+            }
+
+            if (this.editorManager.splitMode && this.editorManager.editorGroups) {
+                const emptyGroup = this.editorManager.editorGroups.find(g => !g.activeFile);
+                if (emptyGroup) {
+                    const language = this.editorManager._getLanguage(filePath);
+                    const uri = this.editorManager.monaco.Uri.file(filePath);
+                    if (!this.editorManager.models.has(filePath)) {
+                        const model = this.editorManager.monaco.editor.createModel(content, language, uri);
+                        this.editorManager.models.set(filePath, model);
+                    }
+                    emptyGroup.editor.setModel(this.editorManager.models.get(filePath));
+                    emptyGroup.activeFile = filePath;
+                    const tab = document.createElement('div');
+                    tab.className = 'editor-group-tab active';
+                    tab.dataset.file = filePath;
+                    tab.innerHTML = '<span>' + fileName + '</span>';
+                    emptyGroup.tabsEl.querySelectorAll('.editor-group-tab').forEach(t => t.classList.remove('active'));
+                    emptyGroup.tabsEl.appendChild(tab);
+                    tab.onclick = () => {
+                        emptyGroup.editor.setModel(this.editorManager.models.get(filePath));
+                        emptyGroup.activeFile = filePath;
+                        emptyGroup.tabsEl.querySelectorAll('.editor-group-tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                    };
+                    window.state.set('activeFile', filePath);
+                    if (!window.state.get('openFiles').find(f => f.path === filePath)) {
+                        window.state.set('openFiles', [...window.state.get('openFiles'), { path: filePath, content, dirty: false }]);
+                    }
+                    return;
+                }
             }
 
             // Open file in editor
@@ -621,13 +670,18 @@ class DeepCodeIDE {
         this.commandRegistry.register('file.save', 'File: Save', () => this.saveFile());
         this.commandRegistry.register('terminal.toggle', 'Terminal: Toggle Terminal', () => this.toggleTerminal());
         this.commandRegistry.register('git.refresh', 'Git: Refresh Status', () => this.refreshGitStatus());
-        this.commandRegistry.register('admin.open', 'Admin: Mở Admin Panel', async () => {
+        this.commandRegistry.register('admin.open', 'Admin: Mo Admin Panel', async () => {
             try {
                 await window.api.admin.open();
             } catch (e) { console.error(e); }
         });
         this.commandRegistry.register('view.explorer', 'View: Explorer', () => this.switchPanel('explorer'));
         this.commandRegistry.register('view.git', 'View: Source Control', () => this.switchPanel('git'));
+        this.commandRegistry.register('view.packages', 'View: Packages', () => this.switchPanel('packages'));
+        this.commandRegistry.register('view.extensions', 'View: Extensions', () => this.switchPanel('extensions'));
+        this.commandRegistry.register('editor.split', 'Editor: Split Editor', () => {
+            if (this.editorManager) this.editorManager.toggleSplit();
+        });
     }
 
     switchPanel(panel) {
@@ -710,6 +764,12 @@ class DeepCodeIDE {
                 e.preventDefault();
                 this.commandPalette?.toggle();
             }
+            if (e.ctrlKey && e.key === '\\') {
+                e.preventDefault();
+                if (this.editorManager) {
+                    this.editorManager.toggleSplit();
+                }
+            }
         });
     }
 
@@ -717,6 +777,215 @@ class DeepCodeIDE {
         if (this.editorManager) {
             await this.editorManager.save();
         }
+    }
+
+    // ===== Feature 2: Package Manager Panel =====
+    setupPackagePanel() {
+        const container = document.getElementById('packagePanelContainer');
+        if (!container) return;
+        this.packageContainer = container;
+    }
+
+    async refreshPackagePanel() {
+        const container = this.packageContainer;
+        if (!container) return;
+        if (!this.currentFolder) {
+            container.innerHTML = '<div class="package-panel"><div class="package-empty">Mở thư mục để quản lý gói</div></div>';
+            return;
+        }
+
+        const projectInfo = await window.api.pkg.detectProjectType(this.currentFolder);
+        if (!projectInfo) {
+            container.innerHTML = '<div class="package-panel"><div class="package-empty">Không tìm thấy file package nào</div></div>';
+            return;
+        }
+
+        this._currentPkgType = projectInfo.type;
+        const packages = await window.api.pkg.list(this.currentFolder, projectInfo.type);
+
+        container.innerHTML = `
+            <div class="package-panel">
+                <div class="package-header">
+                    <div class="package-manager-badge">
+                        <span class="badge-dot"></span>
+                        <span>${projectInfo.type.toUpperCase()} - ${projectInfo.file}</span>
+                    </div>
+                    <div class="package-search-row">
+                        <input type="text" class="package-search-input" id="packageSearchInput" placeholder="Tên package cần cài..." autocomplete="off">
+                        <button class="package-install-btn" id="packageInstallBtn">Cài đặt</button>
+                    </div>
+                </div>
+                <div class="package-list" id="packageList">
+                    ${packages.length === 0 ? '<div class="package-empty">Chưa có package nào</div>' : packages.map(p => `
+                        <div class="package-item" data-name="${p.name}">
+                            <span class="package-item-name">${p.name}</span>
+                            <span class="package-item-version">${p.version}</span>
+                            <button class="package-item-remove" title="Gỡ cài đặt">&times;</button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        const installBtn = document.getElementById('packageInstallBtn');
+        const searchInput = document.getElementById('packageSearchInput');
+        if (installBtn && searchInput) {
+            installBtn.onclick = async () => {
+                const name = searchInput.value.trim();
+                if (!name) return;
+                installBtn.textContent = 'Đang cài...';
+                installBtn.disabled = true;
+                const result = await window.api.pkg.install(this.currentFolder, this._currentPkgType, name);
+                if (result.success) {
+                    this.showToast(`Đã cài đặt ${name}`, 'success');
+                    searchInput.value = '';
+                    await this.refreshPackagePanel();
+                } else {
+                    this.showToast(`Lỗi cài đặt: ${result.error || result.stderr}`, 'error');
+                }
+                installBtn.textContent = 'Cài đặt';
+                installBtn.disabled = false;
+            };
+            searchInput.onkeydown = (e) => { if (e.key === 'Enter') installBtn.click(); };
+        }
+
+        container.querySelectorAll('.package-item-remove').forEach(btn => {
+            btn.onclick = async (e) => {
+                e.stopPropagation();
+                const name = btn.closest('.package-item').dataset.name;
+                if (confirm(`Gỡ cài đặt ${name}?`)) {
+                    const result = await window.api.pkg.uninstall(this.currentFolder, this._currentPkgType, name);
+                    if (result.success) {
+                        this.showToast(`Đã gỡ ${name}`, 'success');
+                        await this.refreshPackagePanel();
+                    } else {
+                        this.showToast(`Lỗi: ${result.error || result.stderr}`, 'error');
+                    }
+                }
+            };
+        });
+    }
+
+    // ===== Feature 3: Extensions Panel =====
+    setupExtensionsPanel() {
+        const container = document.getElementById('extensionsPanelContainer');
+        if (!container) return;
+        this.extensionsContainer = container;
+    }
+
+    async refreshExtensionsPanel() {
+        const container = this.extensionsContainer;
+        if (!container) return;
+
+        const installed = await window.api.ext.list();
+        const builtInExtensions = [
+            { id: 'deepcode-themes-pack', name: 'DeepCode Themes Pack', description: 'Bo giao dien bo sung cho DeepCode IDE', version: '1.0.0', author: 'DeepCode', builtin: true },
+            { id: 'deepcode-snippets-js', name: 'JavaScript Snippets', description: 'Snippet nhanh cho JavaScript & TypeScript', version: '1.2.0', author: 'DeepCode', builtin: true },
+            { id: 'deepcode-snippets-py', name: 'Python Snippets', description: 'Snippet nhanh cho Python', version: '1.0.0', author: 'DeepCode', builtin: true },
+            { id: 'deepcode-lint-hint', name: 'Lint & Hint', description: 'Goi y linting realtime trong editor', version: '0.9.0', author: 'DeepCode', builtin: true },
+        ];
+
+        const installedIds = new Set(installed.map(e => e.id));
+
+        container.innerHTML = `
+            <div class="extensions-panel">
+                <div class="ext-search-row">
+                    <input type="text" class="ext-search-input" id="extSearchInput" placeholder="Tim kiem phan mo rong..." autocomplete="off">
+                </div>
+                <div class="ext-list" id="extList">
+                    ${installed.length > 0 ? `
+                        <div class="ext-section-label">Da cai dat</div>
+                        ${installed.map(ext => `
+                            <div class="ext-item" data-id="${ext.id}">
+                                <div class="ext-item-icon">${(ext.name || ext.id)[0].toUpperCase()}</div>
+                                <div class="ext-item-info">
+                                    <div class="ext-item-name">${ext.name || ext.id}</div>
+                                    <div class="ext-item-desc">${ext.description || ''}</div>
+                                    <div class="ext-item-meta">v${ext.version || '0.0.1'}${ext.author ? ' - ' + ext.author : ''}</div>
+                                </div>
+                                <div class="ext-toggle ${ext.enabled !== false ? 'active' : ''}" data-id="${ext.id}"></div>
+                            </div>
+                        `).join('')}
+                    ` : ''}
+                    <div class="ext-section-label">Cho tien ich</div>
+                    ${builtInExtensions.map(ext => `
+                        <div class="ext-item" data-id="${ext.id}">
+                            <div class="ext-item-icon">${ext.name[0]}</div>
+                            <div class="ext-item-info">
+                                <div class="ext-item-name">${ext.name}</div>
+                                <div class="ext-item-desc">${ext.description}</div>
+                                <div class="ext-item-meta">v${ext.version} - ${ext.author}</div>
+                            </div>
+                            ${installedIds.has(ext.id)
+                                ? '<button class="ext-install-btn installed" disabled>Da cai</button>'
+                                : '<button class="ext-install-btn" data-id="' + ext.id + '">Cai dat</button>'
+                            }
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        container.querySelectorAll('.ext-toggle').forEach(toggle => {
+            toggle.onclick = async (e) => {
+                e.stopPropagation();
+                const id = toggle.dataset.id;
+                const isActive = toggle.classList.contains('active');
+                await window.api.ext.setEnabled(id, !isActive);
+                toggle.classList.toggle('active');
+            };
+        });
+
+        container.querySelectorAll('.ext-install-btn:not(.installed)').forEach(btn => {
+            btn.onclick = async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                const ext = builtInExtensions.find(e => e.id === id);
+                if (!ext) return;
+                btn.textContent = 'Dang cai...';
+                btn.disabled = true;
+                const result = await window.api.ext.install(id, {
+                    name: ext.name, description: ext.description, version: ext.version, author: ext.author,
+                });
+                if (result.success) {
+                    this.showToast(`Da cai dat ${ext.name}`, 'success');
+                    await this.refreshExtensionsPanel();
+                } else {
+                    this.showToast(`Loi: ${result.error}`, 'error');
+                    btn.textContent = 'Cai dat';
+                    btn.disabled = false;
+                }
+            };
+        });
+
+        const searchInput = document.getElementById('extSearchInput');
+        if (searchInput) {
+            searchInput.oninput = () => {
+                const query = searchInput.value.toLowerCase();
+                container.querySelectorAll('.ext-item').forEach(item => {
+                    const name = item.querySelector('.ext-item-name')?.textContent.toLowerCase() || '';
+                    const desc = item.querySelector('.ext-item-desc')?.textContent.toLowerCase() || '';
+                    item.style.display = (name.includes(query) || desc.includes(query)) ? 'flex' : 'none';
+                });
+            };
+        }
+    }
+
+    // ===== Feature 5: Theme Selector =====
+    setupThemeSelector() {
+        const themeSelect = document.getElementById('settingsTheme');
+        if (!themeSelect) return;
+        const saved = localStorage.getItem('deepcode-theme') || 'deepcode-dark';
+        themeSelect.value = saved;
+
+        themeSelect.addEventListener('change', (e) => {
+            const themeId = e.target.value;
+            if (this.editorManager) {
+                this.editorManager.setTheme(themeId);
+            }
+            localStorage.setItem('deepcode-theme', themeId);
+            this.showToast(`Da chuyen giao dien: ${themeId}`, 'success');
+        });
     }
 
     // Context Menu

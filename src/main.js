@@ -293,7 +293,7 @@ async function gatewaySign(body) {
     const message = `${timestamp}:${GATEWAY_DEVICE_ID}:${canonical}`;
     // Sign with per-user secret (NOT gateway secret)
     const userSecret = loadUserSecret();
-    if (!userSecret) throw new Error('No user secret - please login first');
+    if (!userSecret) return { timestamp, signature: null, canonicalBody: canonical };
     const hmac = crypto.createHmac('sha256', userSecret).update(message).digest('hex');
     return { timestamp, signature: hmac, canonicalBody: canonical };
 }
@@ -329,7 +329,7 @@ async function gatewayHeaders(timestamp, signature) {
         'Content-Type': 'application/json',
         'X-Api-Key': currentApiKey,
         'X-Timestamp': timestamp,
-        'X-Signature': signature,
+        'X-Signature': signature || '',
         'X-Device-ID': GATEWAY_DEVICE_ID,
         'X-Platform': process.platform,
         'X-Version': app.getVersion() || '1.0.0',
@@ -337,19 +337,17 @@ async function gatewayHeaders(timestamp, signature) {
     };
 }
 
-// ========== SECURITY: API keys stored ONLY in main process ==========
-const ATXP_ACCOUNTS = [
-    { token: 'yag0uXh7o5dsHU9kv60Zb', accountId: 'atxp_acct_eOpU5dPuk8Sigxs0c3ST3' },
-    { token: '9nG86jG8LD2oI8Ok9Kx2h', accountId: 'atxp_acct_ybPGs4TCk2JAmH9rAURMU' },
-    { token: 'YcoJiP29r0VLJrJYe2ABG', accountId: 'atxp_acct_4nVQc6VSDMhO0N9rpBbFY' },
-    { token: '0dxF36u0wAMuXeaJGbo2p', accountId: 'atxp_acct_UqrAKQGjB9KfspQH8mPHh' },
-];
+// ========== SECURITY: Load secrets from secrets.json (not committed) ==========
+let _secrets = {};
+try { _secrets = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'secrets.json'), 'utf8')); } catch { console.warn('[DeepCode] No secrets.json found'); }
+
+const ATXP_ACCOUNTS = _secrets.atxp || [];
 
 const ATXP_BASE_URL = 'https://llm.atxp.ai';
 
 // Cloudflare Workers AI (deepcode-ultra)
-const CF_API_TOKEN = 'cfut_UPqrvn9y5npADCJpvOsOCC59VAnm8twauqXwr6Qp9ef474c6';
-let CF_ACCOUNT_ID = '837012b91630c2e9a2d2f03ce8ab64e6';
+const CF_API_TOKEN = _secrets.cloudflare?.apiToken || '';
+let CF_ACCOUNT_ID = _secrets.cloudflare?.accountId || '';
 const CF_MODEL = '@cf/zai-org/glm-5.2';
 
 // ZenMux API (DeepCode Pro + Review mode)
@@ -516,11 +514,11 @@ setInterval(() => {
 // ========== SECURITY: Tier store (persisted to disk) ==========
 const TIER_STORE_PATH = path.join(app.getPath('userData'), 'deepcode-tier.json');
 const TIER_CONFIG = {
-    free:    { creditsPerDay: 0,    creditsPerMonth: 0,    maxContext: 4096  },
-    pro:     { creditsPerDay: 10,   creditsPerMonth: 300,  maxContext: 32000 },
-    premium: { creditsPerDay: 1000, creditsPerMonth: 1000, maxContext: 64000 },
-    ultra:   { creditsPerDay: 2000, creditsPerMonth: 2000, maxContext: 128000 },
-    business:{ creditsPerDay: 3000, creditsPerMonth: 3000, maxContext: 128000 },
+    free:    { creditsPerDay: 0,    creditsPerMonth: 100,   maxContext: 4096  },
+    pro:     { creditsPerDay: 0,    creditsPerMonth: 2000,  maxContext: 32000 },
+    premium: { creditsPerDay: 0,    creditsPerMonth: 5000,  maxContext: 64000 },
+    ultra:   { creditsPerDay: 0,    creditsPerMonth: 5000,  maxContext: 64000 },
+    business:{ creditsPerDay: 0,    creditsPerMonth: 100000,maxContext: 128000 },
 };
 
 function loadTierStore() {
@@ -660,7 +658,7 @@ function createWindow() {
             responseHeaders: {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
-                    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://api.github.com https://github.com https://llm.atxp.ai https://zenmux.ai https://openrouter.ai https://api.cloudflare.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com https://deepcode-gateway.vercel.app; font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com;"
+                    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://api.github.com https://github.com https://llm.atxp.ai https://zenmux.ai https://openrouter.ai https://api.cloudflare.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com https://deepcode-gateway.vercel.app; font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com;"
                 ],
                 'X-Content-Type-Options': ['nosniff'],
                 'X-Frame-Options': ['DENY'],
@@ -916,6 +914,71 @@ ipcMain.handle('fs:mkdir', async (event, dirPath) => {
     }
 });
 
+// ========== Backup System (before AI changes) ==========
+function getBackupDir(workspaceRoot) {
+    return path.join(workspaceRoot, '.deepcode', 'backups');
+}
+
+ipcMain.handle('backup:save', async (event, { workspaceRoot, filePath, originalContent }) => {
+    try {
+        if (!workspaceRoot || !filePath) return false;
+        const backupDir = getBackupDir(workspaceRoot);
+        fs.mkdirSync(backupDir, { recursive: true });
+        const relativePath = filePath.replace(workspaceRoot, '').replace(/^[/\\]/, '');
+        const safeName = relativePath.replace(/[/\\]/g, '__');
+        const backupPath = path.join(backupDir, safeName + '.bak');
+        fs.writeFileSync(backupPath, originalContent, 'utf-8');
+        return true;
+    } catch (e) {
+        console.error('[Backup] Save failed:', e.message);
+        return false;
+    }
+});
+
+ipcMain.handle('backup:revert', async (event, { workspaceRoot, filePath }) => {
+    try {
+        if (!workspaceRoot || !filePath) return { success: false, error: 'Missing params' };
+        const backupDir = getBackupDir(workspaceRoot);
+        const relativePath = filePath.replace(workspaceRoot, '').replace(/^[/\\]/, '');
+        const safeName = relativePath.replace(/[/\\]/g, '__');
+        const backupPath = path.join(backupDir, safeName + '.bak');
+        if (!fs.existsSync(backupPath)) return { success: false, error: 'No backup found' };
+        const content = fs.readFileSync(backupPath, 'utf-8');
+        fs.writeFileSync(filePath, content, 'utf-8');
+        return { success: true, content };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('backup:has-backup', async (event, { workspaceRoot, filePath }) => {
+    try {
+        if (!workspaceRoot || !filePath) return false;
+        const backupDir = getBackupDir(workspaceRoot);
+        const relativePath = filePath.replace(workspaceRoot, '').replace(/^[/\\]/, '');
+        const safeName = relativePath.replace(/[/\\]/g, '__');
+        return fs.existsSync(path.join(backupDir, safeName + '.bak'));
+    } catch {
+        return false;
+    }
+});
+
+ipcMain.handle('backup:list', async (event, { workspaceRoot }) => {
+    try {
+        if (!workspaceRoot) return [];
+        const backupDir = getBackupDir(workspaceRoot);
+        if (!fs.existsSync(backupDir)) return [];
+        return fs.readdirSync(backupDir).filter(f => f.endsWith('.bak')).map(f => ({
+            name: f.replace('.bak', ''),
+            path: f,
+            size: fs.statSync(path.join(backupDir, f)).size,
+            modified: fs.statSync(path.join(backupDir, f)).mtimeMs,
+        }));
+    } catch {
+        return [];
+    }
+});
+
 // ========== SECURITY: Tier management (server-side enforced) ==========
 ipcMain.handle('tier:get', async () => {
     return getTierData();
@@ -1027,10 +1090,16 @@ ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream }) =>
     const { timestamp, signature, canonicalBody } = await gatewaySign(bodyObj);
     const hdrs = await gatewayHeaders(timestamp, signature);
 
-    console.log('[DeepCode Go] Request:', {
+    // Pass GitHub token for GitHub Models routing
+    if (model && model.startsWith('github:')) {
+        const gh = loadGithubToken();
+        if (gh.token) hdrs['X-GitHub-Token'] = gh.token;
+    }
+
+    console.log('[DeepCode] Request:', {
         apiKey: (hdrs['X-Api-Key'] || '').substring(0, 15) + '...',
         timestamp,
-        signature: signature.substring(0, 10) + '...',
+        signature: (signature || '').substring(0, 10) + '...',
         deviceId: hdrs['X-Device-ID'],
         bodyLen: canonicalBody.length,
     });
@@ -1058,6 +1127,7 @@ ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream }) =>
                             const { done, value } = await reader.read();
                             if (done) {
                                 webContents.send('deepcode-go:stream-chunk', { done: true });
+                                incrementCredits();
                                 break;
                             }
                             const chunk = decoder.decode(value, { stream: true });
@@ -1072,15 +1142,16 @@ ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream }) =>
             }
 
             const data = await res.json();
+            incrementCredits();
             return { content: data.choices?.[0]?.message?.content || '' };
         }
 
         const errData = await res.json().catch(() => ({}));
         const errMsg = typeof errData.error === 'string' ? errData.error : (errData.error?.message || JSON.stringify(errData));
-        console.error('[DeepCode Go] Gateway error:', res.status, errMsg, 'Full:', JSON.stringify(errData).substring(0, 200));
+        console.error('[DeepCode] Gateway error:', res.status, errMsg, 'Full:', JSON.stringify(errData).substring(0, 200));
         throw new Error(errMsg || `Gateway error: ${res.status}`);
     } catch (e) {
-        throw new Error('DeepCode Go error: ' + e.message);
+        throw new Error('DeepCode error: ' + e.message);
     }
 });
 
@@ -1101,7 +1172,7 @@ ipcMain.handle('deepcode-go:models', async () => {
     } catch (e) {
         // Gateway not available
     }
-    return [{ id: 'auto', name: 'Auto (Gateway)' }];
+    return [{ id: 'auto', name: 'DeepCode' }];
 });
 
 // ========== DeepCode Pro → Gateway v2 ==========
@@ -1112,13 +1183,17 @@ ipcMain.handle('zenmux:chat', async (event, { messages, stream, mode }) => {
         throw new Error('Rate limit exceeded. Vui lòng thử lại sau.');
     }
 
-    const model = mode === 'review' ? 'stepfun/step-3.7-flash-free' : 'z-ai/glm-4.7-flash-free';
+    const userSecret = loadUserSecret();
+    const version = userSecret ? 'v2' : 'v1';
+    const model = version === 'v2'
+        ? (mode === 'review' ? 'stepfun/step-3.7-flash-free' : 'z-ai/glm-4.7-flash-free')
+        : 'auto';
 
     const bodyObj = { model, messages, stream: !!stream };
     const { timestamp, signature, canonicalBody } = await gatewaySign(bodyObj);
 
     try {
-        const res = await fetch(`${GATEWAY_URL}/v2/chat/completions`, {
+        const res = await fetch(`${GATEWAY_URL}/${version}/chat/completions`, {
             method: 'POST',
             headers: await gatewayHeaders(timestamp, signature),
             body: canonicalBody,
@@ -1127,9 +1202,11 @@ ipcMain.handle('zenmux:chat', async (event, { messages, stream, mode }) => {
         if (res.ok) {
             if (stream) {
                 const buffer = await res.arrayBuffer();
+                incrementCredits();
                 return Array.from(new Uint8Array(buffer));
             }
             const data = await res.json();
+            incrementCredits();
             return { content: data.choices?.[0]?.message?.content || '' };
         }
 
@@ -1413,6 +1490,27 @@ ipcMain.handle('device:set-user', (event, { email, provider, tier }) => {
     return { success: true };
 });
 
+// ========== Credits (from gateway) ==========
+ipcMain.handle('gateway:credits', async () => {
+    if (!currentApiKey) {
+        const data = loadApiKey();
+        currentApiKey = data?.apiKey || '';
+    }
+    if (!currentApiKey) return null;
+    try {
+        const res = await fetch(`${GATEWAY_URL}/credits`, {
+            method: 'GET',
+            headers: {
+                'X-Api-Key': currentApiKey,
+            },
+        });
+        return await res.json();
+    } catch (e) {
+        console.error('[DeepCode] Failed to fetch credits:', e.message);
+        return null;
+    }
+});
+
 // ========== Terminal ==========
 const terminals = new Map();
 
@@ -1674,6 +1772,37 @@ ipcMain.handle('github:poll-token', async (event, { deviceCode }) => {
     }
 });
 
+// ========== GitHub Models AI (routed through Gateway) ==========
+const GITHUB_MODELS = [
+    { id: 'github:gpt-4o', name: 'GPT-4o (GitHub)' },
+    { id: 'github:gpt-4o-mini', name: 'GPT-4o Mini (GitHub)' },
+    { id: 'github:gpt-4.1', name: 'GPT-4.1 (GitHub)' },
+    { id: 'github:gpt-4.1-mini', name: 'GPT-4.1 Mini (GitHub)' },
+    { id: 'github:o3-mini', name: 'o3-mini (GitHub)' },
+    { id: 'github:Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B (GitHub)' },
+    { id: 'github:Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B (GitHub)' },
+    { id: 'github:Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B (GitHub)' },
+    { id: 'github:Llama-4-Scout-17B-16E-Instruct', name: 'Llama 4 Scout (GitHub)' },
+    { id: 'github:Llama-4-Maverick-17B-128E-Instruct', name: 'Llama 4 Maverick (GitHub)' },
+    { id: 'github:Mistral-Large-2411', name: 'Mistral Large (GitHub)' },
+    { id: 'github:Mistral-Small-2501', name: 'Mistral Small (GitHub)' },
+    { id: 'github:Phi-4', name: 'Phi-4 (GitHub)' },
+    { id: 'github:Phi-4-mini-instruct', name: 'Phi-4 Mini (GitHub)' },
+    { id: 'github:DeepSeek-R1', name: 'DeepSeek R1 (GitHub)' },
+    { id: 'github:DeepSeek-V3-0324', name: 'DeepSeek V3 (GitHub)' },
+    { id: 'github:Cohere-C4AI-Command-R-08-2024', name: 'Command R (GitHub)' },
+    { id: 'github:Cohere-C4AI-Command-R-Plus-08-2024', name: 'Command R+ (GitHub)' },
+];
+
+ipcMain.handle('github-models:list', async () => {
+    const gh = loadGithubToken();
+    if (!gh.token) return { models: [], connected: false };
+    return { models: GITHUB_MODELS, connected: true, username: gh.username };
+});
+    if (!gh.token) return { models: [], connected: false };
+    return { models: GITHUB_MODELS, connected: true, username: gh.username };
+});
+
 // ========== ADMIN IPC Handlers ==========
 ipcMain.handle('admin:get-users', () => adminDB.getAllUsers());
 ipcMain.handle('admin:get-user', (event, userId) => adminDB.getUser(userId));
@@ -1742,10 +1871,10 @@ ipcMain.handle('security:get-ban-status', () => {
 const http = require('http');
 const url = require('url');
 
-const GOOGLE_CLIENT_ID = '317314962134-1a11bl4vbmvso15jup884q5rqh780ll2.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = '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';
-const GITHUB_CLIENT_SECRET = '0052977df3627d6c7629b60ca5ff250fca600a27';
-const FIREBASE_API_KEY = 'AIzaSyB0um5Pl7t15KwOzFsOnu_737TZMLbFuXY';
+const GOOGLE_CLIENT_ID = _secrets.google?.clientId || '';
+const GOOGLE_CLIENT_SECRET = _secrets.google?.clientSecret || '';
+const GITHUB_CLIENT_SECRET = _secrets.github?.clientSecret || '';
+const FIREBASE_API_KEY = _secrets.firebase?.apiKey || '';
 
 function createOAuthServer() {
     return new Promise((resolve, reject) => {
@@ -1835,6 +1964,180 @@ ipcMain.handle('oauth-github', async () => {
     } catch (e) {
         mainWindow?.webContents.send('oauth-callback', { provider: 'github', error: e.message });
     }
+});
+
+// ========== Package Manager ==========
+ipcMain.handle('pkg:detect-project-type', async (event, { workspaceRoot }) => {
+    if (!workspaceRoot) return null;
+    const checks = [
+        { file: 'package.json', type: 'npm', cmd: 'npm' },
+        { file: 'requirements.txt', type: 'pip', cmd: 'pip' },
+        { file: 'pyproject.toml', type: 'pip', cmd: 'pip' },
+        { file: 'Cargo.toml', type: 'cargo', cmd: 'cargo' },
+        { file: 'go.mod', type: 'go', cmd: 'go' },
+    ];
+    for (const c of checks) {
+        if (fs.existsSync(path.join(workspaceRoot, c.file))) {
+            return { type: c.type, cmd: c.cmd, file: c.file };
+        }
+    }
+    return null;
+});
+
+ipcMain.handle('pkg:list', async (event, { workspaceRoot, pkgType }) => {
+    if (!workspaceRoot) return [];
+    try {
+        if (pkgType === 'npm') {
+            const pkgPath = path.join(workspaceRoot, 'package.json');
+            if (!fs.existsSync(pkgPath)) return [];
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+            return Object.entries(deps).map(([name, version]) => ({ name, version }));
+        }
+        if (pkgType === 'pip') {
+            const reqPath = path.join(workspaceRoot, 'requirements.txt');
+            if (!fs.existsSync(reqPath)) return [];
+            const content = fs.readFileSync(reqPath, 'utf-8');
+            return content.split('\n').filter(l => l.trim() && !l.startsWith('#')).map(l => {
+                const match = l.match(/^([a-zA-Z0-9_.-]+)\s*([=<>!~]+.*)?$/);
+                return match ? { name: match[1], version: match[2] || '*' } : null;
+            }).filter(Boolean);
+        }
+        if (pkgType === 'cargo') {
+            const cargoPath = path.join(workspaceRoot, 'Cargo.toml');
+            if (!fs.existsSync(cargoPath)) return [];
+            const content = fs.readFileSync(cargoPath, 'utf-8');
+            const deps = [];
+            const depSection = content.match(/\[dependencies\]([\s\S]*?)(\[|$)/);
+            if (depSection) {
+                const lines = depSection[1].split('\n');
+                for (const line of lines) {
+                    const match = line.match(/^(\w[\w-]*)\s*=\s*["{].*["{]?(?:version\s*=\s*"([^"]+)")?/);
+                    if (match) deps.push({ name: match[1], version: match[2] || '*' });
+                }
+            }
+            return deps;
+        }
+        if (pkgType === 'go') {
+            const goModPath = path.join(workspaceRoot, 'go.mod');
+            if (!fs.existsSync(goModPath)) return [];
+            const content = fs.readFileSync(goModPath, 'utf-8');
+            const deps = [];
+            const reqSection = content.match(/require\s*\(([\s\S]*?)\)/);
+            if (reqSection) {
+                const lines = reqSection[1].split('\n');
+                for (const line of lines) {
+                    const match = line.trim().match(/^(\S+)\s+(v\S+)/);
+                    if (match) deps.push({ name: match[1], version: match[2] });
+                }
+            }
+            return deps;
+        }
+    } catch (e) {
+        console.error('[Package] List error:', e.message);
+    }
+    return [];
+});
+
+ipcMain.handle('pkg:install', async (event, { workspaceRoot, pkgType, packageName }) => {
+    if (!workspaceRoot || !packageName) return { success: false, error: 'Missing params' };
+    let cmd, args;
+    if (pkgType === 'npm') { cmd = 'npm'; args = ['install', packageName]; }
+    else if (pkgType === 'pip') { cmd = 'pip'; args = ['install', packageName]; }
+    else if (pkgType === 'cargo') { cmd = 'cargo'; args = ['add', packageName]; }
+    else if (pkgType === 'go') { cmd = 'go'; args = ['get', packageName]; }
+    else return { success: false, error: 'Unknown package type' };
+
+    return new Promise((resolve) => {
+        const proc = spawn(cmd, args, { cwd: workspaceRoot, shell: true, windowsHide: true });
+        let stdout = '', stderr = '';
+        proc.stdout.on('data', d => { stdout += d.toString(); });
+        proc.stderr.on('data', d => { stderr += d.toString(); });
+        proc.on('exit', (code) => {
+            resolve({ success: code === 0, stdout, stderr, code });
+        });
+        proc.on('error', (err) => {
+            resolve({ success: false, error: err.message });
+        });
+    });
+});
+
+ipcMain.handle('pkg:uninstall', async (event, { workspaceRoot, pkgType, packageName }) => {
+    if (!workspaceRoot || !packageName) return { success: false, error: 'Missing params' };
+    let cmd, args;
+    if (pkgType === 'npm') { cmd = 'npm'; args = ['uninstall', packageName]; }
+    else if (pkgType === 'pip') { cmd = 'pip'; args = ['uninstall', '-y', packageName]; }
+    else if (pkgType === 'cargo') { cmd = 'cargo'; args = ['rm', packageName]; }
+    else if (pkgType === 'go') { cmd = 'go'; args = ['get', packageName + '@none']; }
+    else return { success: false, error: 'Unknown package type' };
+
+    return new Promise((resolve) => {
+        const proc = spawn(cmd, args, { cwd: workspaceRoot, shell: true, windowsHide: true });
+        let stdout = '', stderr = '';
+        proc.stdout.on('data', d => { stdout += d.toString(); });
+        proc.stderr.on('data', d => { stderr += d.toString(); });
+        proc.on('exit', (code) => {
+            resolve({ success: code === 0, stdout, stderr, code });
+        });
+        proc.on('error', (err) => {
+            resolve({ success: false, error: err.message });
+        });
+    });
+});
+
+// ========== Extensions ==========
+const EXTENSIONS_DIR = path.join(app.getPath('userData'), 'deepcode-extensions');
+
+ipcMain.handle('ext:list', async () => {
+    try {
+        if (!fs.existsSync(EXTENSIONS_DIR)) {
+            fs.mkdirSync(EXTENSIONS_DIR, { recursive: true });
+            return [];
+        }
+        const dirs = fs.readdirSync(EXTENSIONS_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
+        return dirs.map(d => {
+            const manifestPath = path.join(EXTENSIONS_DIR, d.name, 'manifest.json');
+            try {
+                if (fs.existsSync(manifestPath)) {
+                    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+                    return { id: d.name, ...manifest, enabled: manifest.enabled !== false };
+                }
+            } catch {}
+            return { id: d.name, name: d.name, description: '', version: '0.0.1', author: '', enabled: true };
+        });
+    } catch { return []; }
+});
+
+ipcMain.handle('ext:install', async (event, { name, manifest }) => {
+    try {
+        const extDir = path.join(EXTENSIONS_DIR, name);
+        fs.mkdirSync(extDir, { recursive: true });
+        const m = { ...manifest, enabled: true, installedAt: Date.now() };
+        fs.writeFileSync(path.join(extDir, 'manifest.json'), JSON.stringify(m, null, 2), 'utf-8');
+        return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('ext:uninstall', async (event, { name }) => {
+    try {
+        const extDir = path.join(EXTENSIONS_DIR, name);
+        if (fs.existsSync(extDir)) {
+            fs.rmSync(extDir, { recursive: true, force: true });
+        }
+        return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('ext:set-enabled', async (event, { name, enabled }) => {
+    try {
+        const manifestPath = path.join(EXTENSIONS_DIR, name, 'manifest.json');
+        if (fs.existsSync(manifestPath)) {
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+            manifest.enabled = enabled;
+            fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+        }
+        return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
 });
 
 app.on('before-quit', () => {

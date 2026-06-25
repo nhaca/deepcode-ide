@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('api', {
         mkdir: (dirPath) => ipcRenderer.invoke('fs:mkdir', dirPath),
         readDirectory: (path) => ipcRenderer.invoke('fs:read-directory', path),
     },
+    backup: {
+        save: (workspaceRoot, filePath, originalContent) => ipcRenderer.invoke('backup:save', { workspaceRoot, filePath, originalContent }),
+        revert: (workspaceRoot, filePath) => ipcRenderer.invoke('backup:revert', { workspaceRoot, filePath }),
+        hasBackup: (workspaceRoot, filePath) => ipcRenderer.invoke('backup:has-backup', { workspaceRoot, filePath }),
+        list: (workspaceRoot) => ipcRenderer.invoke('backup:list', { workspaceRoot }),
+    },
     app: {
         minimize: () => ipcRenderer.send('app:minimize'),
         maximize: () => ipcRenderer.send('app:maximize'),
@@ -48,6 +54,11 @@ contextBridge.exposeInMainWorld('api', {
         createRepo: (name, description, isPrivate) => ipcRenderer.invoke('github:create-repo', { name, description, isPrivate }),
         requestDeviceCode: () => ipcRenderer.invoke('github:device-code'),
         pollToken: (deviceCode) => ipcRenderer.invoke('github:poll-token', { deviceCode }),
+    },
+    // GitHub Models AI (models.inference.ai.azure.com)
+    githubModels: {
+        chat: (model, messages, stream) => ipcRenderer.invoke('github-models:chat', { model, messages, stream }),
+        list: () => ipcRenderer.invoke('github-models:list'),
     },
     // SECURITY: Tier management — server-side enforced
     tier: {
@@ -90,6 +101,10 @@ contextBridge.exposeInMainWorld('api', {
         getBinding: () => ipcRenderer.invoke('device:get-binding'),
         setUser: (email, provider, tier) => ipcRenderer.invoke('device:set-user', { email, provider, tier }),
     },
+    // Gateway credits
+    gateway: {
+        credits: () => ipcRenderer.invoke('gateway:credits'),
+    },
     // Admin panel (mã session mỗi lần mở app)
     admin: {
         open: (token) => ipcRenderer.invoke('admin:open', token),
@@ -103,6 +118,20 @@ contextBridge.exposeInMainWorld('api', {
     security: {
         getFingerprint: () => ipcRenderer.invoke('security:get-fingerprint'),
         getBanStatus: () => ipcRenderer.invoke('security:get-ban-status'),
+    },
+    // Package Manager
+    pkg: {
+        detectProjectType: (workspaceRoot) => ipcRenderer.invoke('pkg:detect-project-type', { workspaceRoot }),
+        list: (workspaceRoot, pkgType) => ipcRenderer.invoke('pkg:list', { workspaceRoot, pkgType }),
+        install: (workspaceRoot, pkgType, packageName) => ipcRenderer.invoke('pkg:install', { workspaceRoot, pkgType, packageName }),
+        uninstall: (workspaceRoot, pkgType, packageName) => ipcRenderer.invoke('pkg:uninstall', { workspaceRoot, pkgType, packageName }),
+    },
+    // Extensions
+    ext: {
+        list: () => ipcRenderer.invoke('ext:list'),
+        install: (name, manifest) => ipcRenderer.invoke('ext:install', { name, manifest }),
+        uninstall: (name) => ipcRenderer.invoke('ext:uninstall', { name }),
+        setEnabled: (name, enabled) => ipcRenderer.invoke('ext:set-enabled', { name, enabled }),
     },
 });
 

@@ -5,6 +5,8 @@ class TerminalManager {
         this.activeId = null;
         this.xterm = null;
         this.fitAddon = null;
+        this._outputBuffer = '';
+        this._detectTimer = null;
     }
 
     async init() {
@@ -139,6 +141,7 @@ class TerminalManager {
 
         window.api.terminal.onData(id, (data) => {
             this.xterm.write(data);
+            this._detectMissingLibrary(data);
         });
 
         window.api.terminal.onExit(id, (code) => {
@@ -189,6 +192,73 @@ class TerminalManager {
         if (this.container) {
             this.container.style.display = 'none';
         }
+    }
+
+    _detectMissingLibrary(data) {
+        this._outputBuffer += data;
+        if (this._outputBuffer.length > 4096) {
+            this._outputBuffer = this._outputBuffer.slice(-2048);
+        }
+
+        clearTimeout(this._detectTimer);
+        this._detectTimer = setTimeout(() => {
+            const buf = this._outputBuffer;
+            const patterns = [
+                { regex: /Cannot find module\s+['"]([^'"]+)['"]/i, type: 'npm' },
+                { regex: /Module not found:\s+['"]([^'"]+)['"]/i, type: 'npm' },
+                { regex: /ModuleNotFoundError:\s*No module named\s+['"]([^'"]+)['"]/i, type: 'pip' },
+                { regex: /error:.*unresolved import\s+(\S+)/i, type: 'cargo' },
+                { regex: /could not import package\s+(\S+)/i, type: 'go' },
+                { regex: /Command not found:\s*(\S+)/i, type: 'cmd' },
+            ];
+
+            for (const p of patterns) {
+                const match = buf.match(p.regex);
+                if (match) {
+                    const packageName = match[1];
+                    this._showMissingLibNotification(packageName, p.type);
+                    break;
+                }
+            }
+            this._outputBuffer = '';
+        }, 800);
+    }
+
+    _showMissingLibNotification(packageName, pkgType) {
+        const bar = document.getElementById('missingLibBar');
+        const msgEl = document.getElementById('missingLibMessage');
+        const installBtn = document.getElementById('missingLibInstallBtn');
+        const dismissBtn = document.getElementById('missingLibDismissBtn');
+
+        if (!bar || !msgEl || !installBtn) return;
+
+        const typeLabels = { npm: 'npm', pip: 'pip', cargo: 'cargo', go: 'go', cmd: '' };
+        const typeLabel = typeLabels[pkgType] || pkgType;
+
+        msgEl.innerHTML = `Thiếu ${typeLabel ? typeLabel + ' ' : ''}package: <strong>${packageName}</strong>`;
+
+        bar.classList.add('visible');
+        bar.dataset.package = packageName;
+        bar.dataset.pkgType = pkgType;
+
+        installBtn.onclick = () => {
+            const installCmds = {
+                npm: `npm install ${packageName}`,
+                pip: `pip install ${packageName}`,
+                cargo: `cargo add ${packageName}`,
+                go: `go get ${packageName}`,
+                cmd: packageName,
+            };
+            const cmd = installCmds[pkgType] || `npm install ${packageName}`;
+            if (window.ide && window.ide.terminalManager) {
+                window.ide.terminalManager.write(cmd + '\n');
+            }
+            bar.classList.remove('visible');
+        };
+
+        dismissBtn.onclick = () => {
+            bar.classList.remove('visible');
+        };
     }
 }
 

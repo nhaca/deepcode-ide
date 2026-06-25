@@ -24,12 +24,14 @@ class AIPanel {
                     this.credits = {
                         tier: userData.tier || 'free',
                         creditsUsed: userData.requestsToday || 0,
-                        creditsPerDay: { free: 999, pro: 200, premium: 500, business: 999999 }[userData.tier || 'free'] || 999,
-                        creditsPerMonth: { free: 9999, pro: 6000, premium: 15000, business: 999999 }[userData.tier || 'free'] || 9999,
+                        creditsPerDay: 0,
+                        creditsPerMonth: { free: 100, pro: 2000, premium: 5000, business: 100000 }[userData.tier || 'free'] || 100,
                     };
                     const user = { id: fb.userId, email: userData.email, name: userData.displayName || userData.email };
                     this.state.set('user', user);
                     this.showLoggedInUI(user);
+                    // Fetch real credits from gateway
+                    this.refreshGatewayCredits();
                     return;
                 }
             } catch (e) {
@@ -83,7 +85,7 @@ class AIPanel {
                             <path d="M17 14 Q20 12 23 14" stroke="#7c5cfc" stroke-width="1.5" fill="none" stroke-linecap="round"/>
                             <path d="M12 19 Q16 22 20 19" stroke="#7c5cfc" stroke-width="1.5" fill="none" stroke-linecap="round"/>
                         </svg>
-                        <span>DeepCode AI</span>
+                        <span>DeepCode</span>
                     </div>
                     <div class="ai-header-actions">
                         <button class="ai-settings-btn" id="aiClearBtn" title="Cuộc trò chuyện mới" onclick="if(window._aiPanel){window._aiPanel.newSession()}">
@@ -155,7 +157,7 @@ class AIPanel {
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
                                     <li>10 lượt/ngày</li>
-                                    <li>300 lượt/tháng</li>
+                                    <li>2000 lượt/tháng</li>
                                     <li>Context 32K tokens</li>
                                     <li>DeepCode Server 2</li>
                                     <li>Hỗ trợ ưu tiên</li>
@@ -171,7 +173,7 @@ class AIPanel {
                                 <div class="tier-price"><span class="price-amount">$49</span><span class="price-period">/tháng</span></div>
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
-                                    <li>1000 lượt/tháng</li>
+                                    <li>5000 lượt/tháng</li>
                                     <li>Context 64K tokens</li>
                                     <li>DeepCode Server 2</li>
                                     <li>Tất cả models</li>
@@ -187,7 +189,7 @@ class AIPanel {
                                 <div class="tier-price"><span class="price-amount">$99</span><span class="price-period">/tháng</span></div>
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
-                                    <li>3000 lượt/tháng</li>
+                                    <li>100000 lượt/tháng</li>
                                     <li>Context 128K tokens</li>
                                     <li>DeepCode Server 2</li>
                                     <li>Tất cả models + Priority</li>
@@ -219,7 +221,7 @@ class AIPanel {
                                 <path d="M52 70 Q64 80 76 70" stroke="#7c5cfc" stroke-width="3" fill="none" stroke-linecap="round"/>
                             </svg>
                         </div>
-                        <h3>DeepCode AI</h3>
+                        <h3>DeepCode</h3>
                         <p>Đăng nhập để sử dụng AI</p>
                     </div>
 
@@ -325,21 +327,13 @@ class AIPanel {
         const tierNames = { free: 'Free', pro: 'PRO', premium: 'Premium', business: 'Business' };
         document.getElementById('creditsTier').textContent = tierNames[tier] || tier;
 
-        const isFree = tier === 'free';
         const used = this.credits.creditsUsed || 0;
         const perDay = this.credits.creditsPerDay || 0;
-        const perMonth = this.credits.creditsPerMonth || 0;
 
-        if (isFree) {
-            document.getElementById('creditsUsed').textContent = '0';
-            document.getElementById('creditsTotal').textContent = 'N/A';
-            document.getElementById('creditsBarFill').style.width = '0%';
-        } else {
-            document.getElementById('creditsUsed').textContent = used;
-            document.getElementById('creditsTotal').textContent = perDay === 999999 ? '∞' : `${perDay}/ngày`;
-            const percent = perDay === 999999 ? 0 : (used / perDay) * 100;
-            document.getElementById('creditsBarFill').style.width = `${Math.min(100, percent)}%`;
-        }
+        document.getElementById('creditsUsed').textContent = used;
+        document.getElementById('creditsTotal').textContent = perDay === 999999 ? '∞' : perDay;
+        const percent = perDay === 999999 ? 0 : (used / perDay) * 100;
+        document.getElementById('creditsBarFill').style.width = `${Math.min(100, percent)}%`;
 
         const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
         const _tier = this.credits?.tier || 'free';
@@ -358,19 +352,41 @@ class AIPanel {
         else if (ctxPercent > 60) fill.classList.add('warning');
     }
 
+    async refreshGatewayCredits() {
+        try {
+            const data = await window.api.gateway.credits();
+            if (data && data.success) {
+                this.credits = {
+                    tier: data.tier || 'free',
+                    creditsUsed: data.credits.limit - data.credits.remaining,
+                    creditsPerDay: 0,
+                    creditsPerMonth: data.credits.limit || 100,
+                    remaining: data.credits.remaining,
+                    resetAt: data.credits.resetAt,
+                    tokensUsed: data.tokensUsed || 0,
+                    requestsToday: data.requestsToday || 0,
+                };
+                this.updateCreditsDisplay();
+            }
+        } catch (e) {
+            console.warn('Gateway credits fetch failed:', e.message);
+        }
+    }
+
     async loadModels() {
         const dropdown = document.getElementById('aiModelDropdown');
         const defaultModels = [
-            { id: 'deepcode-go', name: 'DeepCode Go' },
+            { id: 'deepcode-go', name: 'DeepCode' },
             { id: 'deepcode-pro', name: 'DeepCode Pro' },
             { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
         ];
 
-        const providerOrder = ['DeepCode', 'OpenAI', 'Anthropic', 'Google', 'Meta', 'DeepSeek', 'Mistral', 'Cohere', 'xAI', 'Alibaba', 'Baidu', 'ByteDance', 'Zhipu', '01.AI', 'Other'];
+        const providerOrder = ['DeepCode', 'GitHub', 'OpenAI', 'Anthropic', 'Google', 'Meta', 'DeepSeek', 'Mistral', 'Cohere', 'xAI', 'Alibaba', 'Baidu', 'ByteDance', 'Zhipu', '01.AI', 'Other'];
 
         const getProvider = (id) => {
             const lower = id.toLowerCase();
             if (lower.startsWith('deepcode')) return 'DeepCode';
+            if (lower.startsWith('github:')) return 'GitHub';
             if (lower.startsWith('openai') || lower.startsWith('gpt') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) return 'OpenAI';
             if (lower.startsWith('anthropic') || lower.startsWith('claude')) return 'Anthropic';
             if (lower.startsWith('google') || lower.startsWith('gemini')) return 'Google';
@@ -390,6 +406,7 @@ class AIPanel {
         };
 
         const cleanName = (id) => {
+            if (id.startsWith('github:')) return id.replace('github:', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const slash = id.indexOf('/');
             const raw = slash > 0 ? id.substring(slash + 1) : id;
             return raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -660,8 +677,7 @@ class AIPanel {
                     } else {
                         await window.deepcodeClient.upgradeTier(tier);
                     }
-                    this.credits = await window.deepcodeClient.getCredits();
-                    this.updateCreditsDisplay();
+                    this.refreshGatewayCredits();
                     document.getElementById('aiUpgradeModal').style.display = 'none';
                     await this.loadModels();
                 } catch (e) {
@@ -997,7 +1013,7 @@ class AIPanel {
             const model = document.getElementById('aiModelDropdown')?.value || 'deepcode-go';
             const mode = this.state.get('aiMode') || 'plan';
 
-            const basePrompt = 'QUY TẮC SỐ 1: BẠN BẮT BUỘC PHẢI TRẢ LỜI BẰNG TIẾNG VIỆT. ĐÂY LÀ LUẬT TUYỆT ĐỐI. Dù người dùng viết bằng ngôn ngữ nào, bạn PHẢI trả lời bằng tiếng Việt. KHÔNG BAO GIỜ dùng tiếng Anh trong câu trả lời. Bạn là DeepCode AI, trợ lý lập trình. Xưng "mình", gọi người dùng là "bạn". Trả lời ngắn gọn, đi thẳng vấn đề. Nếu ý tưởng có vấn đề, lịch sự chỉ ra và đề xuất cách tốt hơn. KHÔNG tâng bốc quá mức. Nếu bị hỏi về model, nói: "Mình là DeepCode AI, mình sẵn sàng giúp bạn code!"';
+            const basePrompt = 'QUY TẮC SỐ 1: BẠN BẮT BUỘC PHẢI TRẢ LỜI BẰNG TIẾNG VIỆT. ĐÂY LÀ LUẬT TUYỆT ĐỐI. Dù người dùng viết bằng ngôn ngữ nào, bạn PHẢI trả lời bằng tiếng Việt. KHÔNG BAO GIỜ dùng tiếng Anh trong câu trả lời. Bạn là DeepCode, trợ lý lập trình. Xưng "mình", gọi người dùng là "bạn". Trả lời ngắn gọn, đi thẳng vấn đề. Nếu ý tưởng có vấn đề, lịch sự chỉ ra và đề xuất cách tốt hơn. KHÔNG tâng bốc quá mức. Nếu bị hỏi về model, nói: "Mình là DeepCode, mình sẵn sàng giúp bạn code!"';
 
             const modePrompts = {
                 plan: basePrompt + ' CHẾ ĐỘ PLAN: Phân tích yêu cầu, thảo luận và đề xuất giải pháp. KHÔNG tạo/sửa file. Chỉ phân tích và gợi ý. Nếu người dùng yêu cầu code, đề xuất chuyển sang chế độ Code. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
@@ -1082,7 +1098,7 @@ class AIPanel {
 
             if (isReviewRequest) {
                 useReviewModel = true;
-                reviewSystemPrompt = 'Bạn là DeepCode AI Review — chuyên gia code review chuyên nghiệp. TUYỆT ĐỐI trả lời bằng tiếng Việt. PHẢI phân tích dựa trên code và context đã được cung cấp. KHÔNG BAO GIỜ yêu cầu người dùng gửi lại code hoặc cấu trúc project — mọi thông tin đã có trong context. Chỉ ra vấn đề về logic, security, performance, maintainability. Format: ### Vấn đề → Mức độ (Critical/High/Medium/Low) → Giải pháp. Tổng quan project trước khi đi vào chi tiết.';
+                reviewSystemPrompt = 'Bạn là DeepCode Review — chuyên gia code review chuyên nghiệp. TUYỆT ĐỐI trả lời bằng tiếng Việt. PHẢI phân tích dựa trên code và context đã được cung cấp. KHÔNG BAO GIỜ yêu cầu người dùng gửi lại code hoặc cấu trúc project — mọi thông tin đã có trong context. Chỉ ra vấn đề về logic, security, performance, maintainability. Format: ### Vấn đề → Mức độ (Critical/High/Medium/Low) → Giải pháp. Tổng quan project trước khi đi vào chi tiết.';
                 apiMessages[0] = { role: 'system', content: reviewSystemPrompt };
             }
 
@@ -1172,22 +1188,10 @@ class AIPanel {
                 if (fb && fb.isLoggedIn()) {
                     try {
                         const userData = await fb.getUserData();
-                        const newCount = (userData?.requestsToday || 0) + 1;
-                        await fb.updateUserData({
-                            requestsToday: newCount,
-                            totalRequests: (userData?.totalRequests || 0) + 1,
-                            lastLogin: Date.now(),
-                        });
                         fb.trackUsage(this.currentModel, fullContent.length);
-                        this.credits = {
-                            tier: userData?.tier || 'free',
-                            creditsUsed: newCount,
-                            creditsPerDay: { free: 999, pro: 200, premium: 500, business: 999999 }[userData?.tier || 'free'] || 999,
-                            creditsPerMonth: { free: 9999, pro: 6000, premium: 15000, business: 999999 }[userData?.tier || 'free'] || 9999,
-                        };
                     } catch (e) { console.warn('Firebase usage track failed:', e.message); }
                 }
-                this.updateCreditsDisplay();
+                this.refreshGatewayCredits();
                 this.updateContextDisplay();
                 try { window.api.admin.incrementRequests(); } catch (e) {}
             } else {
@@ -1537,6 +1541,8 @@ class AIPanel {
             return;
         }
 
+        this._lastChanges = [];
+
         for (const op of operations) {
             const fullPath = workspaceRoot + '\\' + op.path;
             const isDir = !op.path.includes('.') || op.path.endsWith('/');
@@ -1547,6 +1553,7 @@ class AIPanel {
                     this.addMessage(`[QUALITY GATE] File không tồn tại: ${op.path}. Sử dụng action="create" thay vì edit.`, 'system');
                     continue;
                 }
+                op._oldContent = existing;
             }
 
             if (op.action === 'delete') {
@@ -1555,6 +1562,7 @@ class AIPanel {
                     this.addMessage(`[QUALITY GATE] File không tồn tại: ${op.path}. Bỏ qua.`, 'system');
                     continue;
                 }
+                op._oldContent = existing;
             }
 
             try {
@@ -1563,14 +1571,25 @@ class AIPanel {
                     this.addMessage(`[Đã tạo thư mục: ${op.path}]`, 'system');
                     window.ide?.logToOutput?.(`Tạo thư mục: ${op.path}`, 'success');
                 } else if (op.action === 'create' || op.action === 'edit') {
+                    // Backup before write
+                    if (op._oldContent) {
+                        await window.api.backup.save(workspaceRoot, fullPath, op._oldContent);
+                    }
                     await window.api.fs.writeFile(fullPath, op.content);
                     this._recordPassport(op.action, op.path, op.content);
                     this._calibrateStyle(op.content);
-                    this.addMessage(`[Đã ${op.action === 'create' ? 'tạo' : 'sửa'} file: ${op.path}]`, 'system');
+                    this._lastChanges.push({ action: op.action, path: op.path, hasBackup: !!op._oldContent });
+                    const label = op.action === 'create' ? 'tạo' : 'sửa';
+                    this.addMessage(`[Đã ${label} file: ${op.path}]`, 'system');
                     window.ide?.logToOutput?.(`${op.action === 'create' ? 'Tạo' : 'Sửa'} file: ${op.path}`, 'success');
                 } else if (op.action === 'delete') {
+                    // Backup before delete
+                    if (op._oldContent) {
+                        await window.api.backup.save(workspaceRoot, fullPath, op._oldContent);
+                    }
                     await window.api.fs.deleteFile(fullPath);
                     this._recordPassport('delete', op.path, '');
+                    this._lastChanges.push({ action: 'delete', path: op.path, hasBackup: true });
                     this.addMessage(`[Đã xóa file: ${op.path}]`, 'system');
                     window.ide?.logToOutput?.(`Xóa file: ${op.path}`, 'warn');
                 }
@@ -1578,6 +1597,11 @@ class AIPanel {
                 this.addMessage(`[Lỗi khi ${op.action} ${op.path}: ${e.message}]`, 'system');
                 window.ide?.logToOutput?.(`Lỗi ${op.action} ${op.path}: ${e.message}`, 'error');
             }
+        }
+
+        // Show change summary with revert buttons
+        if (this._lastChanges.length > 0) {
+            this._showChangeSummary(this._lastChanges);
         }
 
         if (operations.length > 0 && window.ide?.currentFolder) {
@@ -1589,6 +1613,75 @@ class AIPanel {
                 const fileName = lastOp.path.split(/[\\/]/).pop();
                 window.ide.openFile(fullPath, fileName);
             }
+        }
+    }
+
+    _showChangeSummary(changes) {
+        const actionLabels = { create: 'Tạo mới', edit: 'Sửa', delete: 'Xóa' };
+        const actionIcons = { create: '+', edit: '~', delete: '-' };
+        const actionColors = { create: '#4ade80', edit: '#fbbf24', delete: '#f87171' };
+
+        const el = document.createElement('div');
+        el.className = 'change-summary';
+        el.innerHTML = `
+            <div class="change-summary-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>AI đã thay đổi ${changes.length} file</span>
+            </div>
+            <div class="change-summary-list">
+                ${changes.map((c, i) => `
+                    <div class="change-summary-item" data-index="${i}">
+                        <span class="change-action-icon" style="color:${actionColors[c.action]}">${actionIcons[c.action]}</span>
+                        <span class="change-file-path">${c.path}</span>
+                        <span class="change-action-label" style="color:${actionColors[c.action]}">${actionLabels[c.action]}</span>
+                        ${c.hasBackup ? `<button class="change-revert-btn" data-index="${i}" title="Hoàn tác">↩</button>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        this.messagesEl.appendChild(el);
+        this.scrollToBottom();
+
+        // Bind revert buttons
+        el.querySelectorAll('.change-revert-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.index);
+                await this._revertChange(changes[idx]);
+            });
+        });
+    }
+
+    async _revertChange(change) {
+        const workspaceRoot = this.state.get('workspaceRoot');
+        if (!workspaceRoot) return;
+        const fullPath = workspaceRoot + '\\' + change.path;
+        try {
+            if (change.action === 'delete') {
+                // Revert delete = restore from backup
+                const result = await window.api.backup.revert(workspaceRoot, fullPath);
+                if (result.success) {
+                    this.addMessage(`[Đã hoàn tác xóa: ${change.path}]`, 'system');
+                    if (window.ide?.currentFolder) await window.ide.loadFileTree(window.ide.currentFolder);
+                } else {
+                    this.addMessage(`[Lỗi hoàn tác: ${result.error}]`, 'system');
+                }
+            } else {
+                // Revert edit/create = restore from backup
+                const result = await window.api.backup.revert(workspaceRoot, fullPath);
+                if (result.success) {
+                    this.addMessage(`[Đã hoàn tác: ${change.path}]`, 'system');
+                    // Update editor if file is open
+                    const editor = window.ide?.editor;
+                    if (editor && editor.activeModel === fullPath) {
+                        editor.editor.setValue(result.content);
+                    }
+                } else {
+                    this.addMessage(`[Lỗi hoàn tác: ${result.error}]`, 'system');
+                }
+            }
+        } catch (e) {
+            this.addMessage(`[Lỗi hoàn tác: ${e.message}]`, 'system');
         }
     }
 
@@ -1719,7 +1812,7 @@ class AIPanel {
 
         if (role === 'assistant') {
             const model = this.currentModel || 'deepcode-go';
-            const modelNames = { 'deepcode-go': 'DeepCode Go', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
+            const modelNames = { 'deepcode-go': 'DeepCode', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
             const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
             div.innerHTML = `
                 <div class="ai-msg-header">
@@ -1765,7 +1858,7 @@ class AIPanel {
                     el._transformed = true;
                     this.hideTypingIndicator();
                     const model = this.currentModel || 'deepcode-go';
-                    const modelNames = { 'deepcode-go': 'DeepCode Go', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
+            const modelNames = { 'deepcode-go': 'DeepCode', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
                     const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
                     el.innerHTML = `
                         <div class="ai-msg-header">
@@ -1850,7 +1943,7 @@ class AIPanel {
         div.className = 'ai-message assistant';
         div.innerHTML = `
             <div class="ai-msg-header">
-                <span class="ai-model-name ai-thinking">Đang suy nghĩ<span class="ai-thinking-dots"><span>.</span><span>.</span><span>.</span></span></span>
+                <span class="ai-model-name ai-thinking-indicator">Đang suy nghĩ<span class="ai-thinking-dots"><span>.</span><span>.</span><span>.</span></span></span>
             </div>
             <div class="ai-message-content ai-thinking-content">
                 <div class="ai-thinking-pulse"></div>

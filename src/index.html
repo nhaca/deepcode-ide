@@ -68,6 +68,18 @@
                     <line x1="6" y1="9" x2="6" y2="21"/>
                 </svg>
             </button>
+            <button class="activity-btn" data-panel="packages" title="Trình quản lý gói">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+            </button>
+            <button class="activity-btn" data-panel="extensions" title="Phần mở rộng">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+            </button>
             <button class="activity-btn" data-panel="ai" title="Trợ lý AI">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.93"/>
@@ -152,6 +164,18 @@
                     </div>
                 </div>
             </div>
+            <div class="sidebar-section flex-1" id="packagePanelSection" style="display: none;">
+                <div class="section-header">
+                    <span>QUẢN LÝ GÓI</span>
+                </div>
+                <div id="packagePanelContainer"></div>
+            </div>
+            <div class="sidebar-section flex-1" id="extensionsPanelSection" style="display: none;">
+                <div class="section-header">
+                    <span>PHẦN MỞ RỘNG</span>
+                </div>
+                <div id="extensionsPanelContainer"></div>
+            </div>
         </aside>
 
         <!-- Settings Modal -->
@@ -189,7 +213,7 @@
                         <div class="settings-item">
                             <label>Model mặc định</label>
                             <select id="settingsDefaultModel">
-                                <option value="deepcode-go" selected>DeepCode Go</option>
+                                <option value="deepcode-go" selected>DeepCode AI</option>
                                 <option value="deepcode-pro">DeepCode Pro</option>
                                 <option value="deepcode-ultra">DeepCode Ultra</option>
                             </select>
@@ -268,6 +292,20 @@
                         </div>
                     </div>
                     <div class="settings-group">
+                        <h3>Giao diện</h3>
+                        <div class="settings-item">
+                            <label>Chủ đề</label>
+                            <select id="settingsTheme">
+                                <option value="deepcode-dark" selected>DeepCode Dark</option>
+                                <option value="midnight-blue">Midnight Blue</option>
+                                <option value="monokai">Monokai</option>
+                                <option value="solarized-dark">Solarized Dark</option>
+                                <option value="dracula">Dracula</option>
+                                <option value="github-dark">GitHub Dark</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-group">
                         <h3>Về DeepCode IDE</h3>
                         <div class="settings-item">
                             <span class="settings-about">Phiên bản 1.0.0</span>
@@ -289,6 +327,14 @@
             <div class="tabs-bar" id="tabsBar">
                 <div class="tab active" data-file="welcome">
                     <span>Chào mừng</span>
+                </div>
+                <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;gap:4px;">
+                    <button class="split-btn" id="splitEditorBtn" title="Chia đôi trình chỉnh sửa (Ctrl+\)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <line x1="12" y1="3" x2="12" y2="21"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
@@ -357,6 +403,10 @@
                                     <span>Bảng lệnh</span>
                                     <span class="shortcut-keys">Ctrl+Shift+P</span>
                                 </div>
+                                <div class="shortcut-item">
+                                    <span>Chia đôi editor</span>
+                                    <span class="shortcut-keys">Ctrl+\</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -400,6 +450,20 @@
 
             <!-- Bottom Panel (Terminal) -->
             <div class="bottom-panel" id="bottomPanel" style="height: 180px;">
+                <div class="missing-lib-bar" id="missingLibBar">
+                    <div class="lib-info">
+                        <div class="lib-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                        </div>
+                        <span class="lib-message" id="missingLibMessage">Thiếu thư viện: <strong></strong></span>
+                    </div>
+                    <button class="lib-install-btn" id="missingLibInstallBtn">Cài đặt</button>
+                    <button class="lib-dismiss-btn" id="missingLibDismissBtn">&times;</button>
+                </div>
                 <div class="panel-tabs">
                     <button class="panel-tab active" data-panel="terminal">Terminal</button>
                     <button class="panel-tab" data-panel="problems">Vấn đề <span class="panel-badge" id="problemsBadge" style="display:none;background:#f87171;color:white;border-radius:8px;padding:0 5px;font-size:10px;margin-left:4px;">0</span></button>

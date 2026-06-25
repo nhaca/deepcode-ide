@@ -268,6 +268,24 @@ class ZenMuxAPI {
     }
 }
 
+// ========== GitHub Models API Client (routed through Gateway) ==========
+class GitHubModelsAPI {
+    async chat(model, messages, stream = false) {
+        // Route through DeepCode Go gateway with github: prefix
+        return await this.deepcodeGo.chat(`github:${model}`, messages, stream);
+    }
+
+    async getModels() {
+        const data = await window.api.githubModels.list();
+        if (!data.connected) return [];
+        return data.models;
+    }
+
+    isConnected() {
+        return window.api.githubModels.list().then(d => d.connected);
+    }
+}
+
 // ========== Unified Client ==========
 class UnifiedClient {
     constructor() {
@@ -276,6 +294,7 @@ class UnifiedClient {
         this.deepcodeGo = new DeepCodeGoAPI();
         this.cloudflare = new CloudflareAPI();
         this.zenmux = new ZenMuxAPI();
+        this.githubModels = new GitHubModelsAPI();
     }
 
     get activeClient() {
@@ -299,6 +318,10 @@ class UnifiedClient {
         if (model && model.includes('pro')) {
             return await this.zenmux.chat(messages, stream, 'pro');
         }
+        // GitHub Models: route through Gateway with user's GitHub token
+        if (model && model.startsWith('github:')) {
+            return await this.deepcodeGo.chat(model, messages, stream);
+        }
 
         const p = getProvider();
         if (p === 'atxp') {
@@ -317,7 +340,7 @@ class UnifiedClient {
         const p = getProvider();
         if (p === 'atxp') {
             const deepcodeModels = [
-                { id: 'deepcode-go', name: 'DeepCode Go' },
+                { id: 'deepcode-go', name: 'DeepCode' },
                 { id: 'deepcode-pro', name: 'DeepCode Pro' },
                 { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
             ];
@@ -329,11 +352,22 @@ class UnifiedClient {
                 return deepcodeModels;
             }
         }
-        // Use DeepCode Go IPC → Gateway v1 (no localhost:3000)
+        // Load from Gateway + GitHub Models
+        const models = [];
         try {
-            return await this.deepcodeGo.getModels();
+            const gatewayModels = await this.deepcodeGo.getModels();
+            models.push(...gatewayModels);
         } catch (e) {
             console.error('Failed to load models from Gateway:', e);
+        }
+        try {
+            const ghModels = await this.githubModels.getModels();
+            models.push(...ghModels);
+        } catch (e) {
+            console.error('Failed to load GitHub Models:', e);
+        }
+        return models.length > 0 ? models : [{ id: 'auto', name: 'DeepCode' }];
+    }
             // Fallback: empty list
             return [];
         }
