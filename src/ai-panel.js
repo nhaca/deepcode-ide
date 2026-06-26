@@ -374,9 +374,9 @@ class AIPanel {
     async loadModels() {
         const dropdown = document.getElementById('aiModelDropdown');
         const defaultModels = [
-            { id: 'deepcode-go', name: 'DeepCode' },
-            { id: 'deepcode-pro', name: 'DeepCode Pro' },
-            { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
+            { id: 'deepcode-go', name: 'DeepCode 4.8' },
+            { id: 'deepcode-pro', name: 'DeepCode 5.2' },
+            { id: 'deepcode-ultra', name: 'DeepCode 5.5' },
         ];
 
         const providerOrder = ['DeepCode', 'GitHub', 'OpenAI', 'Anthropic', 'Google', 'Meta', 'DeepSeek', 'Mistral', 'Cohere', 'xAI', 'Alibaba', 'Baidu', 'ByteDance', 'Zhipu', '01.AI', 'Other'];
@@ -1282,8 +1282,8 @@ Quy tắc quan trọng:
                                     if (delta) {
                                         fullContent += delta;
                                         thinkBuffer += delta;
-                                        if (!inThinkBlock && thinkBuffer.includes('<think>')) { inThinkBlock = true; thinkStartTime = Date.now(); }
-                                        if (inThinkBlock && thinkBuffer.includes('</think>')) {
+                                        if (!inThinkBlock && (thinkBuffer.includes('<thinking>') || thinkBuffer.includes('<think>'))) { inThinkBlock = true; thinkStartTime = Date.now(); }
+                                        if (inThinkBlock && (thinkBuffer.includes('</thinking>') || thinkBuffer.includes('</think>'))) {
                                             inThinkBlock = false;
                                             this._lastThinkDuration = thinkStartTime ? ((Date.now() - thinkStartTime) / 1000).toFixed(1) : null;
                                             thinkBuffer = '';
@@ -1298,10 +1298,10 @@ Quy tắc quan trọng:
                         }
                     }
 
-                    // If native thinking was used (reasoning_content), prepend as <think> block
-                    if (reasoningContent && !fullContent.includes('<think>')) {
-                        this._lastThinkDuration = null; // no timer for native thinking
-                        fullContent = `<think>${reasoningContent}</think>\n\n${fullContent}`;
+                    // If native thinking was used (reasoning_content), prepend as thinking block
+                    if (reasoningContent && !fullContent.includes('<thinking>') && !fullContent.includes('<think>')) {
+                        this._lastThinkDuration = null;
+                        fullContent = `<thinking>${reasoningContent}</thinking>\n\n${fullContent}`;
                     }
 
                     // If model returned tool_calls, enter agentic loop
@@ -2172,7 +2172,7 @@ Quy tắc quan trọng:
 
         if (role === 'assistant') {
             const model = this.currentModel || 'deepcode-go';
-            const modelNames = { 'deepcode-go': 'DeepCode', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
+            const modelNames = { 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
             const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
             div.innerHTML = `
                 <div class="ai-msg-header">
@@ -2219,7 +2219,7 @@ Quy tắc quan trọng:
                     el.style.display = '';
                     this.hideTypingIndicator();
                     const model = this.currentModel || 'deepcode-go';
-            const modelNames = { 'deepcode-go': 'DeepCode', 'deepcode-pro': 'DeepCode Pro', 'deepcode-ultra': 'DeepCode Ultra' };
+            const modelNames = { 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
                     const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
                     el.innerHTML = `
                         <div class="ai-msg-header">
@@ -2259,17 +2259,17 @@ Quy tắc quan trọng:
         html = html.replace(/<file_operation\s+path="[^"]*"\s+action="[^"]*">[\s\S]*?<\/file_operation>/g, '');
         html = html.replace(/<terminal_command>[\s\S]*?<\/terminal_command>/g, '');
 
-        html = html.replace(/<think>([\s\S]*?)<\/think>/g, (match, content) => {
+        html = html.replace(/<thinking>([\s\S]*?)<\/thinking>/g, (match, content) => {
             const trimmed = content.trim();
             if (!trimmed) return '';
             const escaped = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const thinkTime = this._lastThinkDuration || null;
             const timeLabel = thinkTime ? `Thought for ${thinkTime}s` : 'Suy nghĩ...';
             const formattedContent = escaped.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
-            return `<details class="ai-thinking" open><summary><span class="thinking-time">${timeLabel}</span></summary><div class="ai-thinking-content">${formattedContent}</div></details>`;
+            return `<details class="ai-thinking"><summary><span class="thinking-time">${timeLabel}</span></summary><div class="ai-thinking-content">${formattedContent}</div></details>`;
         });
         // Show partial think block during streaming
-        html = html.replace(/<think>([\s\S]*?)$/g, (match, content) => {
+        html = html.replace(/<thinking>([\s\S]*?)$/g, (match, content) => {
             const escaped = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const formattedContent = escaped.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
             return `<details class="ai-thinking" open><summary><span class="thinking-time">Đang suy nghĩ...</span></summary><div class="ai-thinking-content">${formattedContent}</div></details>`;
@@ -2293,7 +2293,7 @@ Quy tắc quan trọng:
         let html = text;
         const placeholders = [];
 
-        html = html.replace(/<think>([\s\S]*?)<\/think>/g, (match, content) => {
+        html = html.replace(/<thinking>([\s\S]*?)<\/thinking>/g, (match, content) => {
             const trimmed = content.trim();
             if (!trimmed) return '';
             const escaped = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2301,7 +2301,7 @@ Quy tắc quan trọng:
             const thinkTime = this._lastThinkDuration || null;
             const timeLabel = thinkTime ? `Thought for ${thinkTime}s` : 'Suy nghĩ...';
             const formattedContent = escaped.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
-            placeholders.push(`<details class="ai-thinking" open><summary><span class="thinking-time">${timeLabel}</span></summary><div class="ai-thinking-content">${formattedContent}</div></details>`);
+            placeholders.push(`<details class="ai-thinking"><summary><span class="thinking-time">${timeLabel}</span></summary><div class="ai-thinking-content">${formattedContent}</div></details>`);
             return `__THINK_${id}__`;
         });
 
