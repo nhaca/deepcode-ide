@@ -107,7 +107,7 @@ class AIPanel {
                 <div class="ai-credits-bar" id="aiCreditsBar" style="display: none;">
                     <div class="credits-info">
                         <span class="credits-tier" id="creditsTier">Free</span>
-                        <span class="credits-count"><span id="creditsUsed">0</span> / <span id="creditsTotal">10K</span> tokens</span>
+                        <span class="credits-count"><span id="creditsUsed">0</span> / <span id="creditsTotal">100K</span> tokens</span>
                     </div>
                     <div class="credits-bar-track">
                         <div class="credits-bar-fill" id="creditsBarFill"></div>
@@ -141,7 +141,7 @@ class AIPanel {
                                 <div class="tier-price"><span class="price-amount">$0</span><span class="price-period">/tháng</span></div>
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
-                                    <li>10K tokens/tháng</li>
+                                    <li>100K tokens/tháng</li>
                                     <li>Context 4K tokens</li>
                                     <li>Hỗ trợ cơ bản</li>
                                 </ul>
@@ -1373,7 +1373,7 @@ Quy tắc quan trọng:
                 errMsg = 'Không thể kết nối server. Vui lòng kiểm tra kết nối mạng.';
             }
             this.addMessage(errMsg, 'system');
-            responseEl.remove();
+            if (responseEl) responseEl.remove();
         } finally {
             this.isStreaming = false;
         }
