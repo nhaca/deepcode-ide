@@ -433,12 +433,20 @@ class AIPanel {
 
         const applyModels = (models) => {
             if (!dropdown) return;
-            if (models.length <= 3) {
-                dropdown.innerHTML = models.map(m =>
+            // Always ensure DeepCode models are at the top
+            const deepcodeModels = [
+                { id: 'deepcode-go', name: 'DeepCode' },
+                { id: 'deepcode-pro', name: 'DeepCode Pro' },
+                { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
+            ];
+            const existingIds = new Set(models.map(m => m.id));
+            const merged = [...deepcodeModels.filter(m => !existingIds.has(m.id)), ...models];
+            if (merged.length <= 3) {
+                dropdown.innerHTML = merged.map(m =>
                     `<option value="${m.id}">${m.name || m.id}</option>`
                 ).join('');
             } else {
-                dropdown.innerHTML = buildGroupedOptions(models);
+                dropdown.innerHTML = buildGroupedOptions(merged);
             }
             const savedModel = localStorage.getItem('deepcode-default-model');
             if (savedModel && dropdown.querySelector(`option[value="${savedModel}"]`)) {
@@ -460,8 +468,16 @@ class AIPanel {
             const result = await window.deepcodeClient.getModels();
             const models = Array.isArray(result) ? result : (result?.models || []);
             if (models.length > 0) {
-                localStorage.setItem('deepcode-cached-models', JSON.stringify(models));
-                applyModels(models);
+                // Always include DeepCode models in cache
+                const deepcodeModels = [
+                    { id: 'deepcode-go', name: 'DeepCode' },
+                    { id: 'deepcode-pro', name: 'DeepCode Pro' },
+                    { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
+                ];
+                const existingIds = new Set(models.map(m => m.id));
+                const merged = [...deepcodeModels.filter(m => !existingIds.has(m.id)), ...models];
+                localStorage.setItem('deepcode-cached-models', JSON.stringify(merged));
+                applyModels(merged);
             }
         } catch (e) {
             console.error('Failed to load models:', e);
