@@ -61,29 +61,30 @@ document.getElementById('adminLoginBtn')?.addEventListener('click', async () => 
 
 // ========== Dashboard ==========
 async function loadStats() {
-    if (!firebaseAdmin) return;
     try {
-        const stats = await firebaseAdmin.getStats();
-        document.getElementById('statsGrid').innerHTML = `
-            <div class="stat-card">
-                <div class="stat-label">Total Users</div>
-                <div class="stat-value">${stats.totalUsers}</div>
-                <div class="stat-sub">${stats.blocked} blocked</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Tier Distribution</div>
-                <div class="stat-value" style="font-size:18px;">
-                    <span class="badge badge-free">Free ${stats.tierDist.free}</span>
-                    <span class="badge badge-pro">PRO ${stats.tierDist.pro}</span>
-                    <span class="badge badge-premium">Premium ${stats.tierDist.premium}</span>
-                    <span class="badge badge-business">Biz ${stats.tierDist.business}</span>
+        if (window.adminAPI) {
+            const stats = await window.adminAPI.getStats();
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Total Users</div>
+                    <div class="stat-value">${stats.totalUsers || 0}</div>
+                    <div class="stat-sub">${stats.blocked || 0} blocked</div>
                 </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Total Requests</div>
-                <div class="stat-value">${stats.totalRequests}</div>
-            </div>
-        `;
+                <div class="stat-card">
+                    <div class="stat-label">Tier Distribution</div>
+                    <div class="stat-value" style="font-size:18px;">
+                        <span class="badge badge-free">Free ${stats.tierDist?.free || 0}</span>
+                        <span class="badge badge-pro">PRO ${stats.tierDist?.pro || 0}</span>
+                        <span class="badge badge-premium">Premium ${stats.tierDist?.premium || 0}</span>
+                        <span class="badge badge-business">Biz ${stats.tierDist?.business || 0}</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Requests</div>
+                    <div class="stat-value">${stats.totalRequests || 0}</div>
+                </div>
+            `;
+        }
     } catch (e) {
         showToast('Failed to load stats: ' + e.message);
     }
@@ -91,9 +92,12 @@ async function loadStats() {
 
 // ========== Users ==========
 async function loadUsers() {
-    if (!firebaseAdmin) return;
     try {
-        allUsers = await firebaseAdmin.getAllUsers();
+        if (window.adminAPI) {
+            allUsers = await window.adminAPI.getAllUsers();
+        } else {
+            allUsers = [];
+        }
         renderUsers(allUsers);
     } catch (e) {
         showToast('Failed to load users: ' + e.message);
@@ -152,14 +156,14 @@ function showAddUserModal() {
 }
 
 async function addUser() {
-    if (!firebaseAdmin) return;
     const id = document.getElementById('newUserId').value.trim();
     const name = document.getElementById('newUserName').value.trim();
     const email = document.getElementById('newUserEmail').value.trim();
     const tier = document.getElementById('newUserTier').value;
     if (!id) return showToast('User ID required');
-    const fields = { tier, displayName: name, email, requestsToday: 0, totalRequests: 0, blocked: false, createdAt: Date.now() };
-    await firebaseAdmin.updateUser(id, fields);
+    if (window.adminAPI) {
+        await window.adminAPI.addUser(id, name, email, tier);
+    }
     closeModal('addUserModal');
     showToast('User added!');
     loadUsers();
@@ -175,50 +179,52 @@ function editUser(userId) {
 }
 
 async function saveUserEdit() {
-    if (!firebaseAdmin) return;
     const userId = document.getElementById('editUserId').value;
     const tier = document.getElementById('editUserTier').value;
     const notes = document.getElementById('editUserNotes').value;
-    await firebaseAdmin.updateUser(userId, { tier, notes });
+    if (window.adminAPI) {
+        await window.adminAPI.updateUser(userId, { tier, notes });
+    }
     closeModal('editUserModal');
     showToast('User updated!');
     loadUsers();
 }
 
 async function blockUser(userId) {
-    if (!firebaseAdmin) return;
     document.getElementById('blockUserId').value = userId;
     document.getElementById('blockReason').value = '';
     document.getElementById('blockUserModal').classList.add('active');
 }
 
 async function confirmBlockUser() {
-    if (!firebaseAdmin) return;
     const userId = document.getElementById('blockUserId').value;
     const reason = document.getElementById('blockReason').value || 'Blocked by admin';
-    await firebaseAdmin.updateUser(userId, { blocked: true, blockReason: reason });
+    if (window.adminAPI) {
+        await window.adminAPI.blockUser(userId, reason);
+    }
     closeModal('blockUserModal');
     showToast('User blocked!');
     loadUsers();
 }
 
 async function unblockUser(userId) {
-    if (!firebaseAdmin) return;
-    await firebaseAdmin.updateUser(userId, { blocked: false, blockReason: '' });
+    if (window.adminAPI) {
+        await window.adminAPI.unblockUser(userId);
+    }
     showToast('User unblocked!');
     loadUsers();
 }
 
 async function deleteUser(userId) {
-    if (!firebaseAdmin) return;
     document.getElementById('deleteUserId').value = userId;
     document.getElementById('deleteUserModal').classList.add('active');
 }
 
 async function confirmDeleteUser() {
-    if (!firebaseAdmin) return;
     const userId = document.getElementById('deleteUserId').value;
-    await firebaseAdmin.deleteUser(userId);
+    if (window.adminAPI) {
+        await window.adminAPI.deleteUser(userId);
+    }
     closeModal('deleteUserModal');
     showToast('User deleted!');
     loadUsers();
