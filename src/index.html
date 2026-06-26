@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body style="background:#0d0b14">
+<body style="background:#0f0f0f">
     <!-- Title Bar -->
     <div class="title-bar">
         <div class="title-bar-drag">
@@ -17,11 +17,11 @@
                     <defs>
                         <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                             <stop offset="0%" style="stop-color:#7c5cfc"/>
-                            <stop offset="100%" style="stop-color:#a78bfa"/>
+                            <stop offset="100%" style="stop-color:#9ca3af"/>
                         </linearGradient>
                     </defs>
                     <rect x="6" y="8" width="20" height="16" rx="4" fill="url(#titleGrad)"/>
-                    <rect x="8" y="10" width="16" height="12" rx="3" fill="#1a1828"/>
+                    <rect x="8" y="10" width="16" height="12" rx="3" fill="#1e1e1e"/>
                     <circle cx="12" cy="15" r="2.5" fill="#7c5cfc"/>
                     <circle cx="13" cy="14" r="1" fill="white"/>
                     <path d="M17 14 Q20 12 23 14" stroke="#7c5cfc" stroke-width="1.5" fill="none" stroke-linecap="round"/>
@@ -115,22 +115,6 @@
                     <div class="empty-state">Chưa mở thư mục</div>
                 </div>
             </div>
-            <div class="sidebar-section">
-                <div class="section-header">
-                    <span> PHIÊN LÀM VIỆC</span>
-                    <button class="section-btn" id="newSessionBtn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="sessions-list" id="sessionsList">
-                    <div class="session-item active">
-                        <span>Phiên mới</span>
-                    </div>
-                </div>
-            </div>
             <div class="sidebar-section flex-1" id="gitPanelSection" style="display: none;">
                 <div class="section-header">
                     <span>ĐIỀU KHIỂN NGUỒN</span>
@@ -138,29 +122,12 @@
                 <div id="gitPanelContainer"></div>
             </div>
             <div class="sidebar-section flex-1" id="searchPanelSection" style="display: none;">
+                <div class="section-header">
+                    <span>KẾT QUẢ TÌM KIẾM</span>
+                </div>
                 <div class="search-panel">
-                    <div class="search-inputs">
-                        <div class="search-row">
-                            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                            <input type="text" id="searchInput" class="search-field" placeholder="Tìm kiếm..." autocomplete="off">
-                            <label class="search-toggle" title="Phân biệt hoa/thường">
-                                <input type="checkbox" id="searchCaseSensitive"> Ab
-                            </label>
-                            <label class="search-toggle" title="Tìm kiếm biểu thức chính quy">
-                                <input type="checkbox" id="searchRegex"> .*
-                            </label>
-                        </div>
-                        <div class="search-row">
-                            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                            <input type="text" id="replaceInput" class="search-field" placeholder="Thay thế..." autocomplete="off">
-                        </div>
-                    </div>
-                    <div class="search-actions">
-                        <button class="search-action-btn" id="searchReplaceOneBtn" title="Thay thế">Thay thế</button>
-                        <button class="search-action-btn" id="searchReplaceAllBtn" title="Thay thế tất cả">Thay thế tất cả</button>
-                    </div>
                     <div class="search-results" id="searchResults">
-                        <div class="search-empty">Nhập từ khóa để tìm kiếm</div>
+                        <div class="search-empty">Nhập Ctrl+F để tìm kiếm</div>
                     </div>
                 </div>
             </div>
@@ -203,28 +170,10 @@
                     </div>
                     <div class="settings-group">
                         <h3>AI Assistant</h3>
-                        <div class="settings-item">
+                        <div class="settings-item" style="display:none">
                             <label>Nhà cung cấp</label>
                             <select id="settingsProvider">
                                 <option value="deepcode" selected>DeepCode</option>
-                                <option value="atxp">DeepCode Server 2</option>
-                            </select>
-                        </div>
-                        <div class="settings-item">
-                            <label>Model mặc định</label>
-                            <select id="settingsDefaultModel">
-                                <option value="deepcode-go" selected>DeepCode AI</option>
-                                <option value="deepcode-pro">DeepCode Pro</option>
-                                <option value="deepcode-ultra">DeepCode Ultra</option>
-                            </select>
-                        </div>
-                        <div class="settings-item">
-                            <label>Context limit</label>
-                            <select id="settingsContextLimit">
-                                <option value="4096">4K tokens</option>
-                                <option value="8192">8K tokens</option>
-                                <option value="16384">16K tokens</option>
-                                <option value="32768">32K tokens</option>
                             </select>
                         </div>
                     </div>
@@ -338,6 +287,36 @@
                 </div>
             </div>
 
+            <!-- Find/Replace Bar (Ctrl+F / Ctrl+H) -->
+            <div class="find-bar" id="findBar" style="display:none;">
+                <div class="find-row">
+                    <svg class="find-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <input type="text" id="findInput" class="find-field" placeholder="Tìm kiếm..." autocomplete="off">
+                    <span class="find-count" id="findCount"></span>
+                    <label class="find-toggle" title="Phân biệt hoa/thường">
+                        <input type="checkbox" id="findCaseSensitive"> <span>Ac</span>
+                    </label>
+                    <label class="find-toggle" title="Tìm regex">
+                        <input type="checkbox" id="findRegex"> <span>.*</span>
+                    </label>
+                    <button class="find-nav-btn" id="findPrevBtn" title="Kết quả trước">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                    </button>
+                    <button class="find-nav-btn" id="findNextBtn" title="Kết quả sau">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <button class="find-close-btn" id="findCloseBtn" title="Đóng (Esc)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="find-row find-replace-row" id="findReplaceRow" style="display:none;">
+                    <svg class="find-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    <input type="text" id="findReplaceInput" class="find-field" placeholder="Thay thế..." autocomplete="off">
+                    <button class="find-action-btn" id="findReplaceOneBtn" title="Thay thế">Thay thế</button>
+                    <button class="find-action-btn" id="findReplaceAllBtn" title="Thay thế tất cả">Tất cả</button>
+                </div>
+            </div>
+
             <div class="editor-panels">
                 <!-- Welcome Panel -->
                 <div class="welcome-panel" id="welcomePanel">
@@ -347,22 +326,22 @@
                                 <defs>
                                     <linearGradient id="welcomeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                                         <stop offset="0%" style="stop-color:#7c5cfc"/>
-                                        <stop offset="100%" style="stop-color:#a78bfa"/>
+                                        <stop offset="100%" style="stop-color:#9ca3af"/>
                                     </linearGradient>
                                 </defs>
                                 <circle cx="64" cy="64" r="60" fill="url(#welcomeGrad)" opacity="0.15"/>
                                 <rect x="28" y="32" width="72" height="60" rx="16" fill="url(#welcomeGrad)"/>
-                                <rect x="36" y="40" width="56" height="44" rx="10" fill="#1a1828"/>
+                                <rect x="36" y="40" width="56" height="44" rx="10" fill="#1e1e1e"/>
                                 <ellipse cx="50" cy="56" rx="8" ry="9" fill="#7c5cfc"/>
                                 <ellipse cx="50" cy="54" rx="4" ry="5" fill="white"/>
-                                <circle cx="52" cy="52" r="2" fill="#1a1828"/>
+                                <circle cx="52" cy="52" r="2" fill="#1e1e1e"/>
                                 <path d="M66 52 Q74 48 82 52" stroke="#7c5cfc" stroke-width="4" fill="none" stroke-linecap="round"/>
-                                <ellipse cx="42" cy="64" rx="6" ry="3" fill="#ff6b9d" opacity="0.5"/>
-                                <ellipse cx="86" cy="64" rx="6" ry="3" fill="#ff6b9d" opacity="0.5"/>
+                                <ellipse cx="42" cy="64" rx="6" ry="3" fill="#9ca3af" opacity="0.5"/>
+                                <ellipse cx="86" cy="64" rx="6" ry="3" fill="#9ca3af" opacity="0.5"/>
                                 <path d="M52 70 Q64 80 76 70" stroke="#7c5cfc" stroke-width="3" fill="none" stroke-linecap="round"/>
                                 <line x1="64" y1="32" x2="64" y2="20" stroke="url(#welcomeGrad)" stroke-width="3" stroke-linecap="round"/>
                                 <circle cx="64" cy="16" r="5" fill="url(#welcomeGrad)"/>
-                                <circle cx="64" cy="16" r="2" fill="#1a1828"/>
+                                <circle cx="64" cy="16" r="2" fill="#1e1e1e"/>
                                 <line x1="32" y1="36" x2="22" y2="24" stroke="url(#welcomeGrad)" stroke-width="3" stroke-linecap="round"/>
                                 <circle cx="20" cy="22" r="4" fill="url(#welcomeGrad)"/>
                                 <line x1="96" y1="36" x2="106" y2="24" stroke="url(#welcomeGrad)" stroke-width="3" stroke-linecap="round"/>

@@ -13,30 +13,6 @@ class Settings {
             }
         });
 
-        const providerSelect = document.getElementById('settingsProvider');
-        const savedProvider = localStorage.getItem('deepcode-provider') || 'deepcode';
-        if (providerSelect) providerSelect.value = savedProvider;
-
-        const savedModel = localStorage.getItem('deepcode-default-model');
-        const savedCtx = localStorage.getItem('deepcode-context-limit');
-        const modelSelect = document.getElementById('settingsDefaultModel');
-        const ctxSelect = document.getElementById('settingsContextLimit');
-        if (modelSelect && savedModel) modelSelect.value = savedModel;
-
-        const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
-        const currentTier = window._aiPanel?.credits?.tier || 'free';
-        const maxCtx = tierMaxContext[currentTier] || 4096;
-        if (ctxSelect) {
-            Array.from(ctxSelect.options).forEach(opt => {
-                opt.disabled = parseInt(opt.value) > maxCtx;
-            });
-            if (savedCtx && parseInt(savedCtx) <= maxCtx) {
-                ctxSelect.value = savedCtx;
-            } else {
-                ctxSelect.value = String(maxCtx);
-            }
-        }
-
         const filePermSelect = document.getElementById('settingsFilePerm');
         const termPermSelect = document.getElementById('settingsTermPerm');
         const readPermSelect = document.getElementById('settingsReadPerm');
@@ -46,25 +22,7 @@ class Settings {
         if (readPermSelect) readPermSelect.value = localStorage.getItem('deepcode-read-perm') || 'allow';
         if (deletePermSelect) deletePermSelect.value = localStorage.getItem('deepcode-delete-perm') || 'ask';
 
-        providerSelect?.addEventListener('change', (e) => {
-            localStorage.setItem('deepcode-provider', e.target.value);
-            window._aiPanel?.loadModels?.();
-        });
-
         document.getElementById('settingsSaveBtn')?.addEventListener('click', () => {
-            const model = document.getElementById('settingsDefaultModel')?.value;
-            let ctx = document.getElementById('settingsContextLimit')?.value;
-            const provider = providerSelect?.value || 'deepcode';
-
-            const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
-            const currentTier = window._aiPanel?.credits?.tier || 'free';
-            const maxCtx = tierMaxContext[currentTier] || 4096;
-            if (ctx && parseInt(ctx) > maxCtx) ctx = String(maxCtx);
-
-            if (model) localStorage.setItem('deepcode-default-model', model);
-            if (ctx) localStorage.setItem('deepcode-context-limit', ctx);
-            localStorage.setItem('deepcode-provider', provider);
-
             const filePerm = document.getElementById('settingsFilePerm')?.value || 'ask';
             const termPerm = document.getElementById('settingsTermPerm')?.value || 'ask';
             const readPerm = document.getElementById('settingsReadPerm')?.value || 'allow';
@@ -74,11 +32,6 @@ class Settings {
             localStorage.setItem('deepcode-read-perm', readPerm);
             localStorage.setItem('deepcode-delete-perm', deletePerm);
             window._aiPanel?.updateAutoBadge?.();
-
-            const aiDropdown = document.getElementById('aiModelDropdown');
-            if (aiDropdown && model && aiDropdown.querySelector(`option[value="${model}"]`)) {
-                aiDropdown.value = model;
-            }
 
             document.getElementById('settingsModal').style.display = 'none';
         });

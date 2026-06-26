@@ -1,66 +1,214 @@
 class SearchManager {
     constructor() {
-        this.searchInput = document.getElementById('searchInput');
-        this.replaceInput = document.getElementById('replaceInput');
+        this.findBar = document.getElementById('findBar');
+        this.searchInput = document.getElementById('findInput');
+        this.replaceInput = document.getElementById('findReplaceInput');
         this.resultsEl = document.getElementById('searchResults');
-        this.caseSensitive = document.getElementById('searchCaseSensitive');
-        this.regexToggle = document.getElementById('searchRegex');
+        this.caseSensitive = document.getElementById('findCaseSensitive');
+        this.regexToggle = document.getElementById('findRegex');
+        this.countEl = document.getElementById('findCount');
+        this.replaceRow = document.getElementById('findReplaceRow');
         this.debounceTimer = null;
         this.results = [];
+        this.editorMatches = [];
+        this.currentMatch = -1;
         this.setupEvents();
     }
 
     setupEvents() {
         this.searchInput?.addEventListener('input', () => {
             clearTimeout(this.debounceTimer);
-            this.debounceTimer = setTimeout(() => this.search(), 300);
+            this.debounceTimer = setTimeout(() => {
+                this.searchInEditor();
+                this.searchInFiles();
+            }, 300);
         });
 
         this.searchInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                clearTimeout(this.debounceTimer);
-                this.search();
+                e.preventDefault();
+                if (e.shiftKey) this.navigateMatch(-1);
+                else this.navigateMatch(1);
+            } else if (e.key === 'Escape') {
+                this.hideFindBar();
             }
         });
 
-        this.caseSensitive?.addEventListener('change', () => this.search());
-        this.regexToggle?.addEventListener('change', () => this.search());
+        this.caseSensitive?.addEventListener('change', () => { this.searchInEditor(); this.searchInFiles(); });
+        this.regexToggle?.addEventListener('change', () => { this.searchInEditor(); this.searchInFiles(); });
 
-        document.getElementById('searchReplaceOneBtn')?.addEventListener('click', () => this.replaceSelected());
-        document.getElementById('searchReplaceAllBtn')?.addEventListener('click', () => this.replaceAll());
+        document.getElementById('findReplaceOneBtn')?.addEventListener('click', () => this.replaceSelected());
+        document.getElementById('findReplaceAllBtn')?.addEventListener('click', () => this.replaceAll());
+        document.getElementById('findCloseBtn')?.addEventListener('click', () => this.hideFindBar());
+        document.getElementById('findPrevBtn')?.addEventListener('click', () => this.navigateMatch(-1));
+        document.getElementById('findNextBtn')?.addEventListener('click', () => this.navigateMatch(1));
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                this.showFindBar(false);
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+                e.preventDefault();
+                this.showFindBar(true);
+            }
+        });
     }
 
-    async search() {
-        const query = this.searchInput?.value?.trim();
+    showFindBar(withReplace) {
+        if (!this.findBar) return;
+        this.findBar.style.display = 'flex';
+        if (this.replaceRow) this.replaceRow.style.display = withReplace ? 'flex' : 'none';
+        this.searchInput?.focus();
+        this.searchInput?.select();
+    }
+
+    hideFindBar() {
+        if (!this.findBar) return;
+        this.findBar.style.display = 'none';
+        this.clearEditorHighlights();
+        if (this.resultsEl) {
+            this.resultsEl.innerHTML = '<div class="search-empty">Nhập Ctrl+F để tìm kiếm</div>';
+        }
+    }
+
+    getQueryOptions() {
+        const query = this.searchInput?.value?.trim() || '';
+        const useRegex = this.regexToggle?.checked || false;
+        const caseSensitive = this.caseSensitive?.checked || false;
+        return { query, useRegex, caseSensitive };
+    }
+
+    buildPattern(query, useRegex, caseSensitive) {
+        if (!query) return null;
+        try {
+            if (useRegex) return new RegExp(query, caseSensitive ? 'g' : 'gi');
+            const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(escaped, caseSensitive ? 'g' : 'gi');
+        } catch {
+            return null;
+        }
+    }
+
+    searchInEditor() {
+        const { query, useRegex, caseSensitive } = this.getQueryOptions();
+        this.clearEditorHighlights();
+        this.editorMatches = [];
+        this.currentMatch = -1;
+
+        if (!query || !window.ide?.editorManager?.monacoEditor) {
+            if (this.countEl) this.countEl.textContent = '';
+            return;
+        }
+
+        const editor = window.ide.editorManager.monacoEditor;
+        const model = editor.getModel();
+        if (!model) return;
+
+        const pattern = this.buildPattern(query, useRegex, caseSensitive);
+        const fullText = model.getValue();
+        const lines = fullText.split('\n');
+
+        for (let i = 0; i < lines.length; i++) {
+            let linePattern;
+            if (pattern) {
+                linePattern = new RegExp(pattern.source, pattern.flags);
+            } else {
+                const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                linePattern = new RegExp(escaped, caseSensitive ? 'g' : 'gi');
+            }
+
+            let m;
+            while ((m = linePattern.exec(lines[i])) !== null) {
+                this.editorMatches.push({
+                    range: new (window.monaco?.Range || function(){})(
+                        i + 1, m.index + 1,
+                        i + 1, m.index + 1 + m[0].length
+                    ),
+                    text: m[0]
+                });
+                if (this.editorMatches.length > 5000) break;
+            }
+            if (this.editorMatches.length > 5000) break;
+        }
+
+        if (this.editorMatches.length > 0) {
+            const decorations = this.editorMatches.map((m, i) => ({
+                range: m.range,
+                options: {
+                    inlineClassName: i === 0 ? 'find-highlight-current' : 'find-highlight',
+                    overviewRuler: { color: '#7c5cfc44', position: 2 },
+                    stickiness: 1
+                }
+            }));
+            this._decorations = editor.deltaDecorations(this._decorations || [], decorations);
+            this.currentMatch = 0;
+            editor.revealRangeInCenter(this.editorMatches[0].range);
+        }
+
+        if (this.countEl) {
+            const total = this.editorMatches.length;
+            this.countEl.textContent = total > 0 ? `${this.currentMatch + 1}/${total}` : '0';
+        }
+    }
+
+    clearEditorHighlights() {
+        const editor = window.ide?.editorManager?.monacoEditor;
+        if (editor && this._decorations) {
+            this._decorations = editor.deltaDecorations(this._decorations, []);
+        }
+        this.editorMatches = [];
+        this.currentMatch = -1;
+    }
+
+    navigateMatch(direction) {
+        if (this.editorMatches.length === 0) return;
+        this.currentMatch = (this.currentMatch + direction + this.editorMatches.length) % this.editorMatches.length;
+        const editor = window.ide?.editorManager?.monacoEditor;
+        if (!editor) return;
+
+        const match = this.editorMatches[this.currentMatch];
+        editor.revealRangeInCenter(match.range);
+        editor.setSelection(match.range);
+
+        const decorations = this.editorMatches.map((m, i) => ({
+            range: m.range,
+            options: {
+                inlineClassName: i === this.currentMatch ? 'find-highlight-current' : 'find-highlight',
+                overviewRuler: { color: '#7c5cfc44', position: 2 },
+                stickiness: 1
+            }
+        }));
+        this._decorations = editor.deltaDecorations(this._decorations || [], decorations);
+
+        if (this.countEl) {
+            this.countEl.textContent = `${this.currentMatch + 1}/${this.editorMatches.length}`;
+        }
+    }
+
+    async searchInFiles() {
+        const { query, useRegex, caseSensitive } = this.getQueryOptions();
         const workspaceRoot = window.state?.get('workspaceRoot');
 
         if (!query || !workspaceRoot) {
-            this.resultsEl.innerHTML = '<div class="search-empty">' + (query ? 'Chưa mở thư mục' : 'Nhập từ khóa để tìm kiếm') + '</div>';
+            this.resultsEl.innerHTML = '<div class="search-empty">' + (query ? 'Chưa mở thư mục' : 'Nhập Ctrl+F để tìm kiếm') + '</div>';
             this.results = [];
             return;
         }
 
-        const useRegex = this.regexToggle?.checked;
-        const caseSensitive = this.caseSensitive?.checked;
-
-        let pattern;
-        try {
-            pattern = useRegex ? new RegExp(query, caseSensitive ? 'g' : 'gi') : null;
-        } catch {
-            this.resultsEl.innerHTML = '<div class="search-empty">Biểu thức regex không hợp lệ</div>';
+        let pattern = this.buildPattern(query, useRegex, caseSensitive);
+        if (!pattern) {
+            this.resultsEl.innerHTML = '<div class="search-empty">Regex không hợp lệ</div>';
             return;
         }
 
         const ignorePatterns = ['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.vscode', '.idea'];
-        const textExtensions = ['.js', '.ts', '.jsx', '.tsx', '.css', '.scss', '.html', '.json', '.md', '.py', '.java', '.c', '.cpp', '.h', '.cs', '.go', '.rs', '.rb', '.php', '.xml', '.yaml', '.yml', '.toml', '.ini', '.env', '.sh', '.bat', '.ps1', '.vue', '.svelte'];
 
         this.results = [];
-        await this.searchDir(workspaceRoot, query, caseSensitive, pattern, ignorePatterns, textExtensions, workspaceRoot);
-
+        await this.searchDir(workspaceRoot, query, caseSensitive, pattern, ignorePatterns, workspaceRoot);
         this.renderResults(query);
     }
 
-    async searchDir(dirPath, query, caseSensitive, pattern, ignorePatterns, textExtensions, rootPath) {
+    async searchDir(dirPath, query, caseSensitive, pattern, ignorePatterns, rootPath) {
         let items;
         try {
             items = await window.api.fs.readDirectory(dirPath);
@@ -72,10 +220,11 @@ class SearchManager {
             if (ignorePatterns.includes(item.name)) continue;
 
             if (item.isDirectory) {
-                await this.searchDir(item.path, query, caseSensitive, pattern, ignorePatterns, textExtensions, rootPath);
+                await this.searchDir(item.path, query, caseSensitive, pattern, ignorePatterns, rootPath);
             } else {
                 const ext = '.' + item.name.split('.').pop().toLowerCase();
-                if (!textExtensions.includes(ext) && !item.name.match(/\.(js|ts|css|html|json|md|py)$/i)) continue;
+                const textExtensions = ['.js', '.ts', '.jsx', '.tsx', '.css', '.scss', '.html', '.json', '.md', '.py', '.java', '.c', '.cpp', '.h', '.cs', '.go', '.rs', '.rb', '.php', '.xml', '.yaml', '.yml', '.toml', '.ini', '.sh', '.bat', '.ps1', '.vue', '.svelte'];
+                if (!textExtensions.includes(ext)) continue;
 
                 try {
                     const content = await window.api.fs.readFile(item.path);
@@ -88,14 +237,8 @@ class SearchManager {
                         const line = lines[i];
                         let isMatch = false;
 
-                        if (pattern) {
-                            pattern.lastIndex = 0;
-                            isMatch = pattern.test(line);
-                        } else {
-                            const searchLine = caseSensitive ? line : line.toLowerCase();
-                            const searchQuery = caseSensitive ? query : query.toLowerCase();
-                            isMatch = searchLine.includes(searchQuery);
-                        }
+                        const linePattern = new RegExp(pattern.source, pattern.flags);
+                        isMatch = linePattern.test(line);
 
                         if (isMatch) {
                             fileMatches.push({ line: i + 1, text: line });
@@ -128,9 +271,8 @@ class SearchManager {
             const fileName = file.file.split('/').pop();
             html += `<div class="search-result-file">`;
             html += `<div class="search-result-file-header" data-path="${this.escapeAttr(file.fullPath)}">`;
-            html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+            html += `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
             html += `<span class="file-name">${this.escapeHtml(fileName)}</span>`;
-            html += `<span style="color:var(--text-muted);font-size:11px">${this.escapeHtml(file.file)}</span>`;
             html += `<span class="match-count">${file.matches.length}</span>`;
             html += `</div>`;
 
@@ -147,7 +289,7 @@ class SearchManager {
             if (file.matches.length > maxShow) {
                 html += `<div class="search-result-line" style="color:var(--text-muted);cursor:default">`;
                 html += `<span class="line-num">...</span>`;
-                html += `<span class="line-text">và ${file.matches.length - maxShow} kết quả khác</span>`;
+                html += `<span class="line-text">+${file.matches.length - maxShow} khác</span>`;
                 html += `</div>`;
             }
 
@@ -186,20 +328,21 @@ class SearchManager {
         const escaped = this.escapeHtml(text);
         if (!query) return escaped;
 
-        const useRegex = this.regexToggle?.checked;
-        const caseSensitive = this.caseSensitive?.checked;
+        const { useRegex, caseSensitive } = this.getQueryOptions();
         const flags = caseSensitive ? 'g' : 'gi';
 
         try {
-            const pattern = useRegex ? new RegExp(`(${query})`, flags) : new RegExp(`(${this.escapeRegex(query)})`, flags);
+            let pattern;
+            if (useRegex) {
+                pattern = new RegExp(`(${query})`, flags);
+            } else {
+                const escapedQ = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                pattern = new RegExp(`(${escapedQ})`, flags);
+            }
             return escaped.replace(pattern, '<mark>$1</mark>');
         } catch {
             return escaped;
         }
-    }
-
-    escapeRegex(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     escapeHtml(str) {
@@ -212,36 +355,31 @@ class SearchManager {
 
     async replaceSelected() {
         const replaceText = this.replaceInput?.value || '';
-        const activeEl = document.querySelector('.search-result-line:hover');
-        if (!activeEl) return;
+        const editor = window.ide?.editorManager?.monacoEditor;
+        if (!editor || this.currentMatch < 0 || this.editorMatches.length === 0) return;
 
-        const filePath = activeEl.dataset.path;
-        const lineNum = parseInt(activeEl.dataset.line);
-        if (!filePath || !lineNum) return;
-
-        const content = await window.api.fs.readFile(filePath);
-        if (!content) return;
-
-        const lines = content.split('\n');
-        const line = lines[lineNum - 1];
-        const query = this.searchInput?.value?.trim();
+        const match = this.editorMatches[this.currentMatch];
+        const { query, caseSensitive } = this.getQueryOptions();
         if (!query) return;
 
-        const caseSensitive = this.caseSensitive?.checked;
-        const searchLine = caseSensitive ? line : line.toLowerCase();
+        const selection = editor.getSelection();
+        const selectedText = editor.getModel().getValueInRange(selection);
+
+        const searchLine = caseSensitive ? selectedText : selectedText.toLowerCase();
         const searchQuery = caseSensitive ? query : query.toLowerCase();
-        const idx = searchLine.indexOf(searchQuery);
+        if (searchLine.toLowerCase().includes(searchQuery.toLowerCase())) {
+            editor.executeEdits('find-replace', [{
+                range: selection,
+                text: replaceText
+            }]);
+        }
 
-        if (idx === -1) return;
-
-        lines[lineNum - 1] = line.substring(0, idx) + replaceText + line.substring(idx + query.length);
-        await window.api.fs.writeFile(filePath, lines.join('\n'));
-
-        this.search();
+        this.searchInEditor();
+        this.searchInFiles();
     }
 
     async replaceAll() {
-        const query = this.searchInput?.value?.trim();
+        const { query, useRegex, caseSensitive } = this.getQueryOptions();
         const replaceText = this.replaceInput?.value || '';
         if (!query || this.results.length === 0) return;
 
@@ -249,16 +387,13 @@ class SearchManager {
             const content = await window.api.fs.readFile(file.fullPath);
             if (!content) continue;
 
-            const caseSensitive = this.caseSensitive?.checked;
-            const useRegex = this.regexToggle?.checked;
             let newContent;
+            const flags = caseSensitive ? 'g' : 'gi';
 
             if (useRegex) {
-                const flags = caseSensitive ? 'g' : 'gi';
                 newContent = content.replace(new RegExp(query, flags), replaceText);
             } else {
                 const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const flags = caseSensitive ? 'g' : 'gi';
                 newContent = content.replace(new RegExp(escaped, flags), replaceText);
             }
 
@@ -267,6 +402,7 @@ class SearchManager {
             }
         }
 
-        this.search();
+        this.searchInEditor();
+        this.searchInFiles();
     }
 }

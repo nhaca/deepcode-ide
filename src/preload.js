@@ -28,6 +28,11 @@ contextBridge.exposeInMainWorld('api', {
         kill: (id) => ipcRenderer.invoke('terminal:kill', { id }),
         onData: (id, callback) => ipcRenderer.on(`terminal:data:${id}`, (_e, data) => callback(data)),
         onExit: (id, callback) => ipcRenderer.on(`terminal:exit:${id}`, (_e, code) => callback(code)),
+        execute: (command, cwd, timeout) => ipcRenderer.invoke('terminal:execute', { command, cwd, timeout }),
+    },
+    ai: {
+        readFile: (filePath) => ipcRenderer.invoke('ai:read-file', { filePath }),
+        listDir: (dirPath) => ipcRenderer.invoke('ai:list-dir', { dirPath }),
     },
     git: {
         init: (repoPath) => ipcRenderer.invoke('git:init', { repoPath }),

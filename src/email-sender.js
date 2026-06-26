@@ -58,14 +58,14 @@ class EmailSender {
                 subject: `[DeepCode] Mã xác thực admin - ${code}`,
                 html: `
                     <div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;">
-                        <div style="background:#0d0b14;color:#a78bfa;padding:16px;border-radius:8px 8px 0 0;">
+                        <div style="background:#0f0f0f;color:#9ca3af;padding:16px;border-radius:8px 8px 0 0;">
                             <h2 style="margin:0;">DeepCode Admin</h2>
                         </div>
                         <div style="background:#1a1726;padding:20px;border-radius:0 0 8px 8px;color:#e0e0e0;">
                             <p>Xin chào Admin,</p>
                             <p>Mã xác thực session của bạn:</p>
-                            <div style="background:#0d0b14;padding:16px;border-radius:6px;text-align:center;margin:16px 0;">
-                                <span style="font-size:32px;font-weight:bold;color:#a78bfa;letter-spacing:4px;">${code}</span>
+                            <div style="background:#0f0f0f;padding:16px;border-radius:6px;text-align:center;margin:16px 0;">
+                                <span style="font-size:32px;font-weight:bold;color:#9ca3af;letter-spacing:4px;">${code}</span>
                             </div>
                             <p style="font-size:12px;color:#888;">Thời gian: ${now}</p>
                             <p style="font-size:12px;color:#888;">Mã này sẽ hết hiệu lực khi app đóng.</p>

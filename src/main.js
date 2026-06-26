@@ -604,7 +604,7 @@ function createWindow() {
         minHeight: 600,
         frame: false,
         titleBarStyle: 'hidden',
-        backgroundColor: '#0d0b14',
+        backgroundColor: '#0f0f0f',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -717,7 +717,7 @@ ipcMain.handle('admin:open', (event, token) => {
         width: 1200,
         height: 800,
         title: 'DeepCode Admin Panel',
-        backgroundColor: '#0d0b14',
+        backgroundColor: '#0f0f0f',
         webPreferences: {
             preload: path.join(__dirname, 'admin-preload.js'),
             contextIsolation: true,
@@ -1038,14 +1038,16 @@ ipcMain.handle('atxp:models', async () => {
 });
 
 // ========== DeepCode Go → Gateway v1 ==========
-ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream }) => {
+ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream, tools }) => {
     const wid = mainWindow?.id;
     const tierData = getTierData();
     if (wid && !checkRateLimit(wid, tierData.tier)) {
         throw new Error('Rate limit exceeded. Vui lòng thử lại sau.');
     }
 
-    const bodyObj = { model: model || 'auto', messages, stream: !!stream };
+    const normalizedModel = (model === 'deepcode-go' || model === 'deepcode-pro' || model === 'deepcode-ultra') ? 'auto' : (model || 'auto');
+    const bodyObj = { model: normalizedModel, messages, stream: !!stream };
+    if (tools && tools.length > 0) bodyObj.tools = tools;
     const { timestamp, signature, canonicalBody } = await gatewaySign(bodyObj);
     const hdrs = await gatewayHeaders(timestamp, signature);
 
@@ -1102,7 +1104,7 @@ ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream }) =>
 
             const data = await res.json();
             incrementCredits();
-            return { content: data.choices?.[0]?.message?.content || '' };
+            return { content: data.choices?.[0]?.message?.content || '', choices: data.choices };
         }
 
         const errData = await res.json().catch(() => ({}));
@@ -1115,6 +1117,73 @@ ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream }) =>
 });
 
 ipcMain.handle('deepcode-go:models', async () => {
+    const fallbackModels = [
+        { id: 'auto', name: 'DeepCode' },
+        { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Groq)' },
+        { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B (Groq)' },
+        { id: 'llama-3.1-70b-versatile', name: 'Llama 3.1 70B (Groq)' },
+        { id: 'gemma2-9b-it', name: 'Gemma 2 9B (Groq)' },
+        { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (Groq)' },
+        { id: 'llama-3.3-70b', name: 'Llama 3.3 70B (Cerebras)' },
+        { id: 'llama-3.1-8b', name: 'Llama 3.1 8B (Cerebras)' },
+        { id: 'llama-3.1-70b', name: 'Llama 3.1 70B (Cerebras)' },
+        { id: 'DeepSeek-V3-0324', name: 'DeepSeek V3 (SambaNova)' },
+        { id: 'Llama-3.3-70B', name: 'Llama 3.3 70B (SambaNova)' },
+        { id: 'Llama-3.1-8B', name: 'Llama 3.1 8B (SambaNova)' },
+        { id: 'Llama-3.1-70B', name: 'Llama 3.1 70B (SambaNova)' },
+        { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (Nvidia)' },
+        { id: 'meta/llama-3.1-8b-instruct', name: 'Llama 3.1 8B (Nvidia)' },
+        { id: 'meta/llama-3.1-70b-instruct', name: 'Llama 3.1 70B (Nvidia)' },
+        { id: 'deepseek-ai/deepseek-r1', name: 'DeepSeek R1 (Nvidia)' },
+        { id: 'mistralai/mistral-large-2-instruct', name: 'Mistral Large (Nvidia)' },
+        { id: 'openrouter:meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (OpenRouter)' },
+        { id: 'openrouter:meta-llama/llama-3.1-8b-instruct', name: 'Llama 3.1 8B (OpenRouter)' },
+        { id: 'openrouter:meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B (OpenRouter)' },
+        { id: 'openrouter:mistralai/mistral-7b-instruct', name: 'Mistral 7B (OpenRouter)' },
+        { id: 'openrouter:qwen/qwen-2.5-72b-instruct', name: 'Qwen 2.5 72B (OpenRouter)' },
+        { id: 'openrouter:google/gemma-2-9b-it', name: 'Gemma 2 9B (OpenRouter)' },
+        { id: 'openrouter:anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)' },
+        { id: 'openrouter:openai/gpt-4o-mini', name: 'GPT-4o Mini (OpenRouter)' },
+        { id: 'openrouter:openai/gpt-4o', name: 'GPT-4o (OpenRouter)' },
+        { id: 'openrouter:google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)' },
+        { id: 'mistral-small-latest', name: 'Mistral Small (Mistral)' },
+        { id: 'mistral-large-latest', name: 'Mistral Large (Mistral)' },
+        { id: 'codestral-latest', name: 'Codestral (Mistral)' },
+        { id: 'open-mistral-nemo', name: 'Mistral Nemo (Mistral)' },
+        { id: 'command-r', name: 'Command R (Cohere)' },
+        { id: 'command-r-plus', name: 'Command R+ (Cohere)' },
+        { id: 'command-r-light', name: 'Command R Light (Cohere)' },
+        { id: 'venice-uncensored', name: 'Venice Uncensored' },
+        { id: 'llm7:meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (LLM7)' },
+        { id: 'llm7:meta-llama/llama-3.1-8b-instruct', name: 'Llama 3.1 8B (LLM7)' },
+        { id: 'huggingface:Qwen/Qwen3-8B', name: 'Qwen3 8B (HuggingFace)' },
+        { id: 'huggingface:meta-llama/Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B (HuggingFace)' },
+        { id: 'huggingface:meta-llama/Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B (HuggingFace)' },
+        { id: 'kira-3.5-flash', name: 'Kira 3.5 Flash' },
+        { id: 'kira-2.5-pro', name: 'Kira 2.5 Pro' },
+        { id: 'ovhcloud:meta-llama/Meta-Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B (OVHcloud)' },
+        { id: 'ovhcloud:meta-llama/Meta-Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B (OVHcloud)' },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Google)' },
+        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Google)' },
+        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Google)' },
+        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Google)' },
+        { id: 'github:gpt-4o', name: 'GPT-4o (GitHub)' },
+        { id: 'github:gpt-4o-mini', name: 'GPT-4o Mini (GitHub)' },
+        { id: 'github:gpt-4.1', name: 'GPT-4.1 (GitHub)' },
+        { id: 'github:gpt-4.1-mini', name: 'GPT-4.1 Mini (GitHub)' },
+        { id: 'github:o3-mini', name: 'o3-mini (GitHub)' },
+        { id: 'github:Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B (GitHub)' },
+        { id: 'github:Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B (GitHub)' },
+        { id: 'github:Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B (GitHub)' },
+        { id: 'github:Llama-4-Scout-17B-16E-Instruct', name: 'Llama 4 Scout (GitHub)' },
+        { id: 'github:Llama-4-Maverick-17B-128E-Instruct', name: 'Llama 4 Maverick (GitHub)' },
+        { id: 'github:Mistral-Large-2411', name: 'Mistral Large (GitHub)' },
+        { id: 'github:Mistral-Small-2501', name: 'Mistral Small (GitHub)' },
+        { id: 'github:Phi-4', name: 'Phi-4 (GitHub)' },
+        { id: 'github:Phi-4-mini-instruct', name: 'Phi-4 Mini (GitHub)' },
+        { id: 'github:DeepSeek-R1', name: 'DeepSeek R1 (GitHub)' },
+        { id: 'github:DeepSeek-V3-0324', name: 'DeepSeek V3 (GitHub)' },
+    ];
     try {
         const res = await fetch(`${GATEWAY_URL}/v1/models`, {
             headers: {
@@ -1125,13 +1194,13 @@ ipcMain.handle('deepcode-go:models', async () => {
         if (res.ok) {
             const data = await res.json();
             if (data.data) {
-                return data.data.map(m => ({ id: m.id, name: m.id }));
+                return data.data.map(m => ({ id: m.id, name: m.name || m.id }));
             }
         }
     } catch (e) {
         // Gateway not available
     }
-    return [{ id: 'auto', name: 'DeepCode' }];
+    return fallbackModels;
 });
 
 // ========== DeepCode Pro → Gateway v2 ==========
@@ -1524,6 +1593,84 @@ ipcMain.handle('terminal:kill', (event, { id }) => {
     }
 });
 
+// AI Terminal Execution - allows AI to run commands and get output
+ipcMain.handle('terminal:execute', async (event, { command, cwd, timeout }) => {
+    return new Promise((resolve) => {
+        const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+        const shellArgs = process.platform === 'win32' ? ['-NoLogo', '-NoProfile', '-Command', command] : ['-c', command];
+        const maxTimeout = timeout || 30000;
+
+        const proc = spawn(shell, shellArgs, {
+            cwd: cwd || process.env.USERPROFILE || 'C:\\',
+            env: process.env,
+            windowsHide: true,
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+        let killed = false;
+
+        const timer = setTimeout(() => {
+            killed = true;
+            proc.kill();
+        }, maxTimeout);
+
+        proc.stdout.on('data', (data) => {
+            stdout += data.toString();
+            if (stdout.length > 50000) { killed = true; proc.kill(); }
+        });
+
+        proc.stderr.on('data', (data) => {
+            stderr += data.toString();
+            if (stderr.length > 50000) { killed = true; proc.kill(); }
+        });
+
+        proc.on('close', (code) => {
+            clearTimeout(timer);
+            resolve({
+                success: code === 0,
+                exitCode: code,
+                stdout: stdout.slice(0, 30000),
+                stderr: stderr.slice(0, 10000),
+                timedOut: killed && !stdout && !stderr,
+            });
+        });
+
+        proc.on('error', (err) => {
+            clearTimeout(timer);
+            resolve({ success: false, exitCode: -1, stdout: '', stderr: err.message, error: err.message });
+        });
+    });
+});
+
+// AI reads file content for context
+ipcMain.handle('ai:read-file', async (event, { filePath }) => {
+    try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        return { success: true, content: content.slice(0, 50000) };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// AI lists directory for project exploration
+ipcMain.handle('ai:list-dir', async (event, { dirPath }) => {
+    try {
+        const items = fs.readdirSync(dirPath, { withFileTypes: true });
+        return {
+            success: true,
+            items: items.filter(i => !i.name.startsWith('.')).map(i => ({
+                name: i.name,
+                isDirectory: i.isDirectory(),
+                path: dirPath + '\\' + i.name,
+            })).slice(0, 200),
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 // Git operations
 ipcMain.handle('git:init', async (event, { repoPath }) => {
     return await gitManager.init(repoPath);
@@ -1854,7 +2001,7 @@ function waitForCallback(server) {
             if (parsed.pathname === '/callback') {
                 clearTimeout(timeout);
                 res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end('<html><body style="background:#0d0b14;color:white;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;"><h2>Đăng nhập thành công! Bạn có thể đóng tab này.</h2></body></html>');
+                res.end('<html><body style="background:#0f0f0f;color:white;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;"><h2>Đăng nhập thành công! Bạn có thể đóng tab này.</h2></body></html>');
                 server.close();
                 resolve(parsed.query);
             }

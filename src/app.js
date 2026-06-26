@@ -105,7 +105,6 @@ class DeepCodeIDE {
         document.getElementById('openFolderBtn').onclick = () => this.fileTree.openFolder();
         document.getElementById('welcomeOpenFolder')?.addEventListener('click', () => this.fileTree.openFolder());
         document.getElementById('welcomeNewFile')?.addEventListener('click', () => this.tabManager.newFile());
-        document.getElementById('newSessionBtn').onclick = () => this.newSession();
     }
 
     setupEditorContainer() {
@@ -249,15 +248,6 @@ class DeepCodeIDE {
     }
 
     newSession() {
-        const sessionsList = document.getElementById('sessionsList');
-        const div = document.createElement('div');
-        div.className = 'session-item';
-        div.innerHTML = `<span>New session ${this.sessions.length + 1}</span>`;
-        div.onclick = () => {
-            document.querySelectorAll('.session-item').forEach((s) => s.classList.remove('active'));
-            div.classList.add('active');
-        };
-        sessionsList.insertBefore(div, sessionsList.firstChild);
         this.sessions.push({ id: this.sessions.length + 1 });
     }
 

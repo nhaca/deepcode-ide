@@ -167,10 +167,10 @@ class AtxpAPI {
 
 // ========== DeepCode Go Client (Gateway v1) ==========
 class DeepCodeGoAPI {
-    async chat(model, messages, stream = false) {
+    async chat(model, messages, stream = false, tools = null) {
         if (stream) {
             window.api.deepcodeGo.removeStreamListeners();
-            const result = await window.api.deepcodeGo.chat(model, messages, true);
+            const result = await window.api.deepcodeGo.chat(model, messages, true, tools);
 
             if (result && result._streaming) {
                 return new ReadableStream({
@@ -195,8 +195,8 @@ class DeepCodeGoAPI {
             }
         }
 
-        const result = await window.api.deepcodeGo.chat(model, messages, false);
-        return { _nonStreaming: true, content: result.content || '' };
+        const result = await window.api.deepcodeGo.chat(model, messages, false, tools);
+        return { _nonStreaming: true, content: result.content || '', choices: result.choices, tool_calls: result.choices?.[0]?.message?.tool_calls };
     }
 
     async getModels() {
@@ -307,10 +307,10 @@ class UnifiedClient {
     set user(v) { this.deepcode.user = v; }
     get token() { return this.deepcode.token; }
 
-    async chat(model, messages, stream = false, projectContext = null) {
+    async chat(model, messages, stream = false, projectContext = null, tools = null) {
         // DeepCode models: route to correct backend, bypass provider setting
         if (model && (model.includes('go') || model === 'auto')) {
-            return await this.deepcodeGo.chat(model, messages, stream);
+            return await this.deepcodeGo.chat(model, messages, stream, tools);
         }
         if (model && (model.includes('ultra') || model.includes('glm') || model.includes('deepcode-ultra'))) {
             return await this.cloudflare.chat(model, messages, stream);
