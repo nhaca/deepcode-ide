@@ -441,7 +441,6 @@ class EditorManager {
         if (this.splitMode) return;
         this.splitMode = true;
 
-        const currentContent = this.editor.getValue();
         const currentFile = this.activeModel;
 
         const editorArea = document.getElementById('editorArea');
@@ -452,6 +451,7 @@ class EditorManager {
         splitContainer.className = 'split-editor-container';
         splitContainer.id = 'splitEditorContainer';
 
+        // Group 1: reuse existing editor container
         const group1Content = document.createElement('div');
         group1Content.className = 'editor-group';
         group1Content.id = 'editorGroup1';
@@ -460,14 +460,14 @@ class EditorManager {
         group1Tabs.className = 'editor-group-tabs';
         group1Content.appendChild(group1Tabs);
 
-        const group1Editor = document.createElement('div');
-        group1Editor.className = 'editor-group-content';
-        group1Editor.id = 'editorGroupContent1';
-        group1Content.appendChild(group1Editor);
+        // Move existing editor container into group1
+        this.container.style.display = 'block';
+        group1Content.appendChild(this.container);
 
         const divider = document.createElement('div');
         divider.className = 'split-editor-divider';
 
+        // Group 2: create new container
         const group2Content = document.createElement('div');
         group2Content.className = 'editor-group';
         group2Content.id = 'editorGroup2';
@@ -489,23 +489,9 @@ class EditorManager {
         tabsBar.style.display = 'none';
         editorArea.insertBefore(splitContainer, editorArea.querySelector('.resize-handle-horizontal'));
 
-        this.editor.dispose();
-        this.editor = null;
-
         const monaco = this.monaco;
 
-        const editor1 = monaco.editor.create(group1Editor, {
-            theme: this.currentTheme,
-            automaticLayout: true,
-            fontSize: 13,
-            fontFamily: "'JetBrains Mono', monospace",
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            smoothScrolling: true,
-            cursorBlinking: 'smooth',
-            padding: { top: 12, bottom: 12 },
-        });
-
+        // Create second editor (share models, no dispose of first)
         const editor2 = monaco.editor.create(group2Editor, {
             theme: this.currentTheme,
             automaticLayout: true,
@@ -519,12 +505,12 @@ class EditorManager {
         });
 
         if (currentFile && this.models.has(currentFile)) {
-            editor1.setModel(this.models.get(currentFile));
-            this._addGroupTab(group1Tabs, currentFile, editor1);
+            this._addGroupTab(group1Tabs, currentFile, this.editor);
+            editor2.setModel(this.models.get(currentFile));
         }
 
         this.editorGroups = [
-            { editor: editor1, container: group1Content, tabsEl: group1Tabs, contentEl: group1Editor, activeFile: currentFile },
+            { editor: this.editor, container: group1Content, tabsEl: group1Tabs, contentEl: this.container, activeFile: currentFile },
             { editor: editor2, container: group2Content, tabsEl: group2Tabs, contentEl: group2Editor, activeFile: null },
         ];
 
@@ -590,41 +576,32 @@ class EditorManager {
         const splitContainer = document.getElementById('splitEditorContainer');
         if (splitContainer) splitContainer.remove();
 
+        // Dispose only the second editor, keep the main one
         if (this.editorGroups) {
             this.editorGroups.forEach(g => {
-                if (g.editor) g.editor.dispose();
+                if (g.editor !== this.editor && g.editor) {
+                    g.editor.dispose();
+                }
             });
             this.editorGroups = [];
         }
 
+        // Move main editor container back to its original position
         const panelsContainer = this.container.parentElement;
         const tabsBar = document.getElementById('tabsBar');
         const editorPanel = document.getElementById('editorPanel');
+        
+        // Re-attach editor container to its original parent
+        if (this.container.parentElement !== panelsContainer) {
+            panelsContainer.appendChild(this.container);
+        }
+        
         panelsContainer.style.display = 'flex';
         tabsBar.style.display = 'flex';
         if (editorPanel) editorPanel.style.display = 'block';
 
-        this.editor = this.monaco.editor.create(this.container, {
-            theme: this.currentTheme,
-            automaticLayout: true,
-            fontSize: 13,
-            fontFamily: "'JetBrains Mono', monospace",
-            minimap: { enabled: true, maxColumn: 80 },
-            scrollBeyondLastLine: false,
-            smoothScrolling: true,
-            cursorBlinking: 'smooth',
-            cursorSmoothCaretAnimation: 'on',
-            renderWhitespace: 'selection',
-            bracketPairColorization: { enabled: true },
-            padding: { top: 12, bottom: 12 },
-            wordWrap: 'off',
-            lineNumbers: 'on',
-            glyphMargin: false,
-            folding: true,
-            lineDecorationsWidth: 8,
-            lineNumbersMinChars: 4,
-        });
-        this._wireEvents();
+        // Layout the main editor
+        this.editor.layout();
 
         if (this.activeModel && this.models.has(this.activeModel)) {
             this.editor.setModel(this.models.get(this.activeModel));
