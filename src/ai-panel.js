@@ -455,6 +455,13 @@ class AIPanel {
             }
         };
 
+        // Clear old model cache to pick up renamed models
+        const cacheVersion = localStorage.getItem('deepcode-models-version');
+        if (cacheVersion !== '2') {
+            localStorage.removeItem('deepcode-cached-models');
+            localStorage.setItem('deepcode-models-version', '2');
+        }
+
         const cached = localStorage.getItem('deepcode-cached-models');
         if (cached) {
             try {
@@ -470,9 +477,9 @@ class AIPanel {
             if (models.length > 0) {
                 // Always include DeepCode models in cache
                 const deepcodeModels = [
-                    { id: 'deepcode-go', name: 'DeepCode' },
-                    { id: 'deepcode-pro', name: 'DeepCode Pro' },
-                    { id: 'deepcode-ultra', name: 'DeepCode Ultra' },
+                    { id: 'deepcode-go', name: 'DeepCode 4.8' },
+                    { id: 'deepcode-pro', name: 'DeepCode 5.2' },
+                    { id: 'deepcode-ultra', name: 'DeepCode 5.5' },
                 ];
                 const existingIds = new Set(models.map(m => m.id));
                 const merged = [...deepcodeModels.filter(m => !existingIds.has(m.id)), ...models];
@@ -2172,7 +2179,7 @@ Quy tắc quan trọng:
 
         if (role === 'assistant') {
             const model = this.currentModel || 'deepcode-go';
-            const modelNames = { 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
+            const modelNames = { 'auto': 'DeepCode 4.8', 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
             const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
             div.innerHTML = `
                 <div class="ai-msg-header">
@@ -2219,7 +2226,7 @@ Quy tắc quan trọng:
                     el.style.display = '';
                     this.hideTypingIndicator();
                     const model = this.currentModel || 'deepcode-go';
-            const modelNames = { 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
+            const modelNames = { 'auto': 'DeepCode 4.8', 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
                     const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
                     el.innerHTML = `
                         <div class="ai-msg-header">
@@ -2264,7 +2271,7 @@ Quy tắc quan trọng:
             if (!trimmed) return '';
             const escaped = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const thinkTime = this._lastThinkDuration || null;
-            const timeLabel = thinkTime ? `Thought for ${thinkTime}s` : 'Suy nghĩ...';
+            const timeLabel = thinkTime ? `Suy nghĩ (${thinkTime}s)` : 'Suy nghĩ...';
             const formattedContent = escaped.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
             return `<details class="ai-thinking"><summary><span class="thinking-time">${timeLabel}</span></summary><div class="ai-thinking-content">${formattedContent}</div></details>`;
         });
@@ -2299,7 +2306,7 @@ Quy tắc quan trọng:
             const escaped = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const id = placeholders.length;
             const thinkTime = this._lastThinkDuration || null;
-            const timeLabel = thinkTime ? `Thought for ${thinkTime}s` : 'Suy nghĩ...';
+            const timeLabel = thinkTime ? `Suy nghĩ (${thinkTime}s)` : 'Suy nghĩ...';
             const formattedContent = escaped.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
             placeholders.push(`<details class="ai-thinking"><summary><span class="thinking-time">${timeLabel}</span></summary><div class="ai-thinking-content">${formattedContent}</div></details>`);
             return `__THINK_${id}__`;

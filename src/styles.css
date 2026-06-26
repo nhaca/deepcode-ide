@@ -1661,22 +1661,21 @@ body {
 }
 
 .ai-thinking {
-    margin: 8px 0;
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    margin: 0 0 4px 0;
+    border: none;
+    background: none;
+    border-radius: 0;
 }
 
 .ai-thinking summary {
-    padding: 10px 14px;
+    padding: 4px 0;
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
     user-select: none;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     list-style: none;
     transition: color 0.15s;
 }
@@ -1684,14 +1683,14 @@ body {
 .ai-thinking summary::-webkit-details-marker { display: none; }
 
 .ai-thinking summary::before {
-    content: '▾';
-    font-size: 11px;
+    content: '▸';
+    font-size: 10px;
     transition: transform 0.2s ease;
     color: var(--text-muted);
 }
 
 .ai-thinking[open] summary::before {
-    transform: rotate(-90deg);
+    transform: rotate(90deg);
 }
 
 .ai-thinking summary:hover {
@@ -1700,24 +1699,27 @@ body {
 
 .ai-thinking summary .thinking-time {
     color: var(--accent);
-    font-weight: 500;
+    font-weight: 400;
+    font-style: italic;
 }
 
 .ai-thinking-content {
-    padding: 12px 16px 14px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    background: var(--bg-primary);
-    border-top: 1px solid var(--border-color);
-    max-height: 400px;
+    padding: 8px 0 8px 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-left: 2px solid var(--border-color);
+    max-height: 300px;
     overflow-y: auto;
-    line-height: 1.65;
+    line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-word;
+    margin-left: 10px;
 }
 
 .ai-thinking-content p {
-    margin: 0 0 8px;
+    margin: 0 0 6px;
 }
 
 .ai-typing {
