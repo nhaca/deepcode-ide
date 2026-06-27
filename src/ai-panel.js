@@ -592,6 +592,25 @@ class AIPanel {
             e.target.value = '';
         });
 
+        // Paste image from clipboard (Ctrl+V)
+        const aiInput = document.getElementById('aiInput');
+        if (aiInput) {
+            aiInput.addEventListener('paste', (e) => {
+                const items = Array.from(e.clipboardData?.items || []);
+                for (const item of items) {
+                    if (item.type.startsWith('image/')) {
+                        e.preventDefault();
+                        const blob = item.getAsFile();
+                        if (blob) {
+                            const name = `paste-${Date.now()}.${blob.type.split('/')[1] || 'png'}`;
+                            this.attachedFiles.push({ name, size: blob.size, type: blob.type, file: blob });
+                            this.renderAttachments();
+                        }
+                    }
+                }
+            });
+        }
+
         // Listen for auth callback from main process (legacy GitHub auth)
         if (window.electronAPI?.onGithubAuth) {
             window.electronAPI.onGithubAuth(async (data) => {
