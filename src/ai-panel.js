@@ -1173,8 +1173,18 @@ Write thinking in the SAME language as the user's question. After thinking, writ
             const tier = this.credits?.tier || 'free';
             const tierMax = tierMaxContext[tier] || 32768;
             const maxContext = tierMax;
-            const resetLimit = tier === 'premium' || tier === 'business' ? Infinity : (tier === 'pro' ? 30 : 5);
-            const resetCount = parseInt(localStorage.getItem('deepcode-reset-count') || '0');
+            const resetLimits = { free: 2, pro: 5, premium: 10, business: 20 };
+            const resetLimit = resetLimits[tier] || 2;
+            const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
+            let resetCount = parseInt(localStorage.getItem('deepcode-reset-count') || '0');
+            const resetWindowStart = parseInt(localStorage.getItem('deepcode-reset-window') || '0');
+            const now = Date.now();
+            // Reset count if 2 weeks have passed
+            if (resetWindowStart && (now - resetWindowStart > twoWeeksMs)) {
+                resetCount = 0;
+                localStorage.setItem('deepcode-reset-count', '0');
+                localStorage.setItem('deepcode-reset-window', String(now));
+            }
             const shouldReset = this._estimateTokens(this.history) > maxContext * 0.7;
 
             let conversationHistory = this.history.slice(-10);
@@ -1209,6 +1219,9 @@ Write thinking in the SAME language as the user's question. After thinking, writ
                         ...this.history.slice(-4),
                     ];
                     localStorage.setItem('deepcode-reset-count', String(resetCount + 1));
+                    if (!resetWindowStart || (now - resetWindowStart > twoWeeksMs)) {
+                        localStorage.setItem('deepcode-reset-window', String(now));
+                    }
                     this._showResetNotice();
                 }
             }
