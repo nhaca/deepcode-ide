@@ -1136,7 +1136,7 @@ class AIPanel {
             const nativeThinkingModels = ['deepseek-r1', 'deepseek-reasoner', 'o1', 'o3', 'o4', 'claude'];
             const hasNativeThinking = nativeThinkingModels.some(nm => model.toLowerCase().includes(nm));
             if (!hasNativeThinking) {
-                systemPrompt += ' TRƯỚC KHI TRẢ LỜI, LUÔN viết quá trình suy nghĩ của bạn trong cặp tag <thinking>...</thinking>. Suy nghĩ phải bao gồm: phân tích yêu cầu, các phương án, lý do chọn phương án cuối cùng. Sau đó viết câu trả lời cuối cùng ở NGOÀI cặp tag <thinking>. KHÔNG viết gì ngoài 2 phần này.';
+                systemPrompt += ' IMPORTANT: You MUST start your response with <thinking> tag. Inside <thinking>, write your reasoning process: analyze the request, consider options, explain your choice. Then write the final answer OUTSIDE the thinking tag. Example: <thinking>analysis here...</thinking> Final answer here. This is MANDATORY. Never skip the <thinking> tag.';
             }
 
             const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
