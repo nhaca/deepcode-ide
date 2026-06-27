@@ -1147,7 +1147,26 @@ class AIPanel {
             const nativeThinkingModels = ['deepseek-r1', 'deepseek-reasoner', 'o1', 'o3', 'o4', 'claude'];
             const hasNativeThinking = nativeThinkingModels.some(nm => model.toLowerCase().includes(nm));
             if (!hasNativeThinking) {
-                systemPrompt += ' IMPORTANT: You MUST start your response with <thinking> tag. Inside <thinking>, write your reasoning process: analyze the request, consider options, explain your choice. Before finalizing, self-check: "Am I inferring from file names only, or have I actually read the content?" If you only read file names, go back and read actual files first. Then write the final answer OUTSIDE the thinking tag. Example: <thinking>analysis here...</thinking> Final answer here. This is MANDATORY. Never skip the <thinking> tag.';
+                systemPrompt += ` THINKING RULES (MANDATORY - you MUST follow this format):
+Start EVERY response with <thinking> tag. Inside thinking, follow these steps:
+1. Understand: What exactly is the user asking?
+2. Check: What files/info do I need? Have I actually read them?
+3. Analyze: Consider options, pros/cons of each.
+4. Self-critique: "Does my answer have gaps? What haven't I checked?"
+5. Conclude: Pick the best option and explain why.
+
+Example:
+<thinking>
+User asks: fix bug in parseConfig
+Need to check: config.py, test files, related modules.
+Option 1: Fix directly in parse → fast but may affect other callers.
+Option 2: Add validation before parse → safer, no side effects.
+Self-critique: Did I check all callers of parseConfig? Need to verify.
+Chose option 2 because safer.
+</thinking>
+[Final answer outside thinking]
+
+Write thinking in the SAME language as the user's question. After thinking, write the final answer clearly.`;
             }
 
             const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
