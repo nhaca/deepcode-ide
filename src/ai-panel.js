@@ -1117,7 +1117,7 @@ class AIPanel {
             const basePrompt = 'QUY TẮC SỐ 1: BẠN BẮT BUỘC PHẢI TRẢ LỜI BẰNG TIẾNG VIỆT. ĐÂY LÀ LUẬT TUYỆT ĐỐI. Dù người dùng viết bằng ngôn ngữ nào, bạn PHẢI trả lời bằng tiếng Việt. KHÔNG BAO GIỜ dùng tiếng Anh trong câu trả lời. Bạn là DeepCode, trợ lý lập trình. Xưng "mình", gọi người dùng là "bạn". Trả lời ngắn gọn, đi thẳng vấn đề. Nếu ý tưởng có vấn đề, lịch sự chỉ ra và đề xuất cách tốt hơn. KHÔNG tâng bốc quá mức. Nếu bị hỏi về model, nói: "Mình là DeepCode, mình sẵn sàng giúp bạn code!"';
 
             const modePrompts = {
-                plan: basePrompt + ' CHẾ ĐỘ PLAN: Phân tích yêu cầu, thảo luận và đề xuất giải pháp. Khi phân tích project: list_directory → tìm entry points → read_file TỪNG entry point → trace imports → read_file các file liên quan. KHÔNG suy đoán từ tên file. Kết thúc liệt kê "Files đã phân tích: [...]". Nếu người dùng yêu cầu tạo/sửa file (ví dụ: "tạo file .bat", "viết code", "tạo file"), hãy tạo file bằng create_file tool — KHÔNG chỉ hướng dẫn bằng text. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
+                plan: basePrompt + ' CHẾ ĐỘ PLAN: Phân tích yêu cầu, thảo luận và đề xuất giải pháp. Khi phân tích project: list_directory → tìm entry points → read_file TỪNG entry point → trace imports → read_file các file liên quan. KHÔNG suy đoán từ tên file. Kết thúc liệt kê "Files đã phân tích: [...]". QUAN TRỌNG: Nếu người dùng yêu cầu tạo/sửa file, bạn BẮT BUỘC phải gọi create_file/edit_file tool NGAY LẬP TỨC. KHÔNG được chỉ hướng dẫn bằng text. Phải thực sự tạo file bằng tool. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
                 code: basePrompt + ' CHẾ ĐỘ CODE: Thực thi trực tiếp. Tạo/sửa/xóa file bằng <file_operation path="tên_file" action="create|edit|delete">nội_dung</file_operation>. action="create" = tạo mới, action="edit" = sửa file cũ, action="delete" = xóa. Nếu cần giải thích code, giải thích NGẮN GỌN trước khi thực thi. Nếu cần chạy terminal, dùng <terminal_command>lệnh</terminal_command>. Nếu cần debug, phân tích lỗi và sửa bằng file_operation. Hệ thống sẽ xin phép trước khi thực thi. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
                 review: basePrompt + ' CHẾ ĐỘ REVIEW: Code review. BẮT BUỘC: list_directory → tìm entry points → read_file TỪNG entry point → trace imports → read_file các file liên quan (ít nhất 5-10 file). KHÔNG được suy đoán từ tên file/folder. Kết thúc phải liệt kê "Files đã phân tích: [...]". Format: ### Vấn đề → Mức độ → Giải pháp. KHÔNG tạo/sửa file, chỉ review. NHẮC LẠI: TRẢ LỜI BẰNG TIẾNG VIỆT.',
             };
@@ -1147,6 +1147,9 @@ class AIPanel {
 
             systemPrompt += ' ANTI-SYCOPHANCY: Nếu người dùng đề xuất giải pháp có vấn đề, hãy challenge một cách lịch sự. Chỉ ra rủi ro, đề xuất thay thế tốt hơn. KHÔNG luôn đồng ý.';
             systemPrompt += ` STYLE PROFILE: Phong cách coding của user: ${this._getStyleHint()}.`;
+
+            // Force tool usage for file operations
+            systemPrompt += ' TOOL USAGE RULES: Khi user yêu cầu "tạo file", "viết code", "tạo file .bat", "tạo file mới" → BẮT BUỘC gọi create_file tool. Khi user yêu cầu "sửa file", "edit file" → BẮT BUỘC gọi edit_file tool. KHÔNG BAO GIỜ chỉ hướng dẫn bằng text khi có thể dùng tool để thực thi trực tiếp. Tool = hành động thật, text = giải thích thêm. Tạo file bằng tool, KHÔNG viết hướng dẫn cách tạo file.';
 
             // Project analysis workflow - enforce deep reading, not surface scanning
             systemPrompt += ` PROJECT ANALYSIS RULES (MUST FOLLOW when user asks to read/understand/analyze project):
