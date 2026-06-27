@@ -420,7 +420,7 @@ class AIPanel {
             const slash = rawId.indexOf('/');
             const raw = slash > 0 ? rawId.substring(slash + 1) : rawId;
             const name = raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-            return isGithub ? `${name} (GitHub)` : name;
+            return name;
         };
 
         const buildGroupedOptions = (models) => {
@@ -854,8 +854,8 @@ class AIPanel {
 
     _getContextLimit() {
         const tier = this.credits?.tier || 'free';
-        const limits = { free: 16000, pro: 64000, premium: 128000, business: 256000 };
-        return limits[tier] || 16000;
+        const limits = { free: 32000, pro: 128000, premium: 256000, business: 512000 };
+        return limits[tier] || 32000;
     }
 
     async _buildFullTree(dirPath, maxDepth, maxItems) {
@@ -1218,10 +1218,12 @@ BẠN CÓ QUYỀN:
 2. THỰC THI LỆNH TERMINAL trực tiếp — KHÔNG cần yêu cầu người dùng tự chạy
 3. Tạo/sửa/xóa file
 
-QUAN TRỌNG: Context project ở dưới chứa TOÀN BỘ code của project. Hãy phân tích kỹ trước khi trả lời.
-- Nếu user hỏi về project, hãy đọc context và trả lời DỰA TRÊN code thực tế
-- Nếu user yêu cầu sửa code, hãy tìm file cụ thể trong context và đưa ra thay đổi chính xác
+QUAN TRỌNG: Context project ở dưới chứa TOÀN BỘ code của project. Bạn BẮT BUỘC phải:
+- ĐỌC KỸ nội dung code trong context — KHÔNG chỉ đọc tên folder/file
+- Phân tích logic, chức năng của từng file code cụ thể
+- Trả lời DỰA TRÊN code thực tế, trích dẫn tên file và đoạn code liên quan
 - KHÔNG BAO GIỜ nói "mình chưa đọc được project" hoặc "cung cấp thêm thông tin" — context đã ở đây rồi
+- KHÔNG BAO GIỜ chỉ mô tả cấu trúc folder — phải phân tích code bên trong
 
 KHI NGƯỜI DÙNG YÊU CẦU CHẠY APP, CÀI ĐẶT, TEST:
 - Hãy ĐƯA RA LỆNH terminal cụ thể dưới dạng code block \`\`\`bash
