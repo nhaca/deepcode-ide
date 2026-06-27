@@ -114,7 +114,7 @@ class AIPanel {
                     </div>
                     <div class="context-info">
                         <span class="context-label">Context:</span>
-                        <span class="context-count"><span id="contextUsed">0</span> / <span id="contextTotal">4K</span></span>
+                        <span class="context-count"><span id="contextUsed">0</span> / <span id="contextTotal">32K</span></span>
                         <div class="context-bar-track">
                             <div class="context-bar-fill" id="contextBarFill"></div>
                         </div>
@@ -142,7 +142,7 @@ class AIPanel {
                                 <div class="tier-divider"></div>
                                 <ul class="tier-features">
                                     <li>100K tokens/tháng</li>
-                                    <li>Context 4K tokens</li>
+                                    <li>Context 32K tokens</li>
                                     <li>Hỗ trợ cơ bản</li>
                                 </ul>
                                 <button class="tier-btn" data-tier="free">Đang dùng</button>
@@ -333,9 +333,9 @@ class AIPanel {
         const percent = perMonth > 0 ? (used / perMonth) * 100 : 0;
         document.getElementById('creditsBarFill').style.width = `${Math.min(100, percent)}%`;
 
-        const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+        const tierMaxCtx = { free: 32768, pro: 65536, premium: 131072, business: 262144 };
         const _tier = this.credits?.tier || 'free';
-        const _tierMax = tierMaxCtx[_tier] || 4096;
+        const _tierMax = tierMaxCtx[_tier] || 32768;
         const maxCtx = _tierMax;
         const usedCtx = this._estimateTokens(this.history);
         const ctxPercent = Math.min(100, (usedCtx / maxCtx) * 100);
@@ -1495,9 +1495,9 @@ Quy tắc quan trọng:
 
     updateContextDisplay() {
         if (!this.credits) return;
-        const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+        const tierMaxCtx = { free: 32768, pro: 65536, premium: 131072, business: 262144 };
         const _tier = this.credits?.tier || 'free';
-        const _tierMax = tierMaxCtx[_tier] || 4096;
+        const _tierMax = tierMaxCtx[_tier] || 32768;
         const maxCtx = _tierMax;
         const usedCtx = this._estimateTokens(this.history);
         const ctxPercent = Math.min(100, (usedCtx / maxCtx) * 100);
@@ -2262,9 +2262,9 @@ Quy tắc quan trọng:
             return;
         }
         if (message === '/token') {
-            const tierMaxCtx = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
-            const _tier = this.credits?.tier || 'free';
-            const _tierMax = tierMaxCtx[_tier] || 4096;
+        const tierMaxCtx = { free: 32768, pro: 65536, premium: 131072, business: 262144 };
+        const _tier = this.credits?.tier || 'free';
+        const _tierMax = tierMaxCtx[_tier] || 32768;
             const maxCtx = _tierMax;
             const usedCtx = this._estimateTokens(this.history);
             const tier = this.credits?.tier || 'free';
