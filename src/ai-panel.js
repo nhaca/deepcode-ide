@@ -423,6 +423,10 @@ class AIPanel {
             return name;
         };
 
+        const stripProviderSuffix = (name) => {
+            return (name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+        };
+
         const buildGroupedOptions = (models) => {
             const groups = {};
             for (const m of models) {
@@ -437,7 +441,7 @@ class AIPanel {
                 items.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
                 html += `<optgroup label="${provider}">`;
                 for (const m of items) {
-                    html += `<option value="${m.id}">${m.name || cleanName(m.id)}</option>`;
+                    html += `<option value="${m.id}">${stripProviderSuffix(m.name) || cleanName(m.id)}</option>`;
                 }
                 html += '</optgroup>';
             }
@@ -456,7 +460,7 @@ class AIPanel {
             const merged = [...deepcodeModels.filter(m => !existingIds.has(m.id)), ...models];
             if (merged.length <= 3) {
                 dropdown.innerHTML = merged.map(m =>
-                    `<option value="${m.id}">${m.name || m.id}</option>`
+                    `<option value="${m.id}">${stripProviderSuffix(m.name) || m.id}</option>`
                 ).join('');
             } else {
                 dropdown.innerHTML = buildGroupedOptions(merged);
