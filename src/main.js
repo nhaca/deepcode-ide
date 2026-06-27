@@ -1037,6 +1037,19 @@ ipcMain.handle('atxp:models', async () => {
     return [];
 });
 
+// ========== DeepCode Personality ==========
+ipcMain.handle('deepcode-go:loadPersonality', async () => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const personalityPath = path.join(__dirname, '..', 'deepcode_personality.json');
+        if (fs.existsSync(personalityPath)) {
+            return JSON.parse(fs.readFileSync(personalityPath, 'utf-8'));
+        }
+    } catch (e) {}
+    return [];
+});
+
 // ========== DeepCode Go → Gateway v1 ==========
 ipcMain.handle('deepcode-go:chat', async (event, { model, messages, stream, tools }) => {
     const wid = mainWindow?.id;

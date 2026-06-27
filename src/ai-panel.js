@@ -1125,6 +1125,22 @@ class AIPanel {
             const socraticCheck = this._detectSocraticIntent(message);
             let systemPrompt = modePrompts[mode] || modePrompts.plan;
 
+            // Personality: only for DeepCode models
+            if (model.startsWith('deepcode')) {
+                try {
+                    if (!this._personalityCache) {
+                        this._personalityCache = await window.api?.deepcodeGo?.loadPersonality?.() || [];
+                    }
+                    const personalityData = this._personalityCache;
+                    if (personalityData.length > 0) {
+                        const examples = personalityData.slice(0, 8).map(ex =>
+                            `User: ${ex.instruction}\nDeepCode: ${ex.output}`
+                        ).join('\n\n');
+                        systemPrompt += `\n\nTÍNH CÁCH CỦA BẠN (DeepCode personality):\nBạn là trợ lý lập trình thân thiện, direct, có khiếu hài hước. Xưng "mình/tao", gọi user là "bạn/mày". Trả lời ngắn gọn, đi thẳng vấn đề, không vòng vo. Khi user sai thì chỉ ra thẳng thắn nhưng hài hước, không gay gắt. Khi đúng thì khen ngợi thật lòng.\n\nVí dụ về phong cách trả lời:\n${examples}`;
+                    }
+                } catch (e) {}
+            }
+
             if (socraticCheck.isVague) {
                 systemPrompt += ` HƯỚNG DẪN SOCRATIC: Yêu cầu của người dùng mơ hồ. Hãy HỎI LẠI 2-3 câu cụ thể trước khi hành động. Ví dụ: "${socraticCheck.suggestion}"`;
             }

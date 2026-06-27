@@ -77,7 +77,8 @@ contextBridge.exposeInMainWorld('api', {
     },
     // DeepCode Go → Gateway v1
     deepcodeGo: {
-        chat: (model, messages, stream) => ipcRenderer.invoke('deepcode-go:chat', { model, messages, stream }),
+        chat: (model, messages, stream, tools) => ipcRenderer.invoke('deepcode-go:chat', { model, messages, stream, tools }),
+        loadPersonality: () => ipcRenderer.invoke('deepcode-go:loadPersonality'),
         models: () => ipcRenderer.invoke('deepcode-go:models'),
         onStreamChunk: (cb) => ipcRenderer.on('deepcode-go:stream-chunk', (_e, data) => cb(data)),
         removeStreamListeners: () => ipcRenderer.removeAllListeners('deepcode-go:stream-chunk'),
