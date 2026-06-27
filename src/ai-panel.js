@@ -585,6 +585,12 @@ class AIPanel {
 
         document.getElementById('aiFileInput')?.addEventListener('change', (e) => {
             const files = Array.from(e.target.files || []);
+            const hasImage = files.some(f => f.type.startsWith('image/'));
+            if (hasImage && !this._modelSupportsVision()) {
+                this.addMessage('⚠️ Model này không hỗ trợ ảnh. Hãy chọn model có hỗ trợ vision (GPT-4o, Claude, Gemini) để gửi ảnh.', 'system');
+                e.target.value = '';
+                return;
+            }
             for (const file of files) {
                 this.attachedFiles.push({ name: file.name, size: file.size, type: file.type, file });
             }
@@ -600,6 +606,10 @@ class AIPanel {
                 for (const item of items) {
                     if (item.type.startsWith('image/')) {
                         e.preventDefault();
+                        if (!this._modelSupportsVision()) {
+                            this.addMessage('⚠️ Model này không hỗ trợ ảnh. Hãy chọn model có hỗ trợ vision (GPT-4o, Claude, Gemini) để gửi ảnh.', 'system');
+                            return;
+                        }
                         const blob = item.getAsFile();
                         if (blob) {
                             const name = `paste-${Date.now()}.${blob.type.split('/')[1] || 'png'}`;
@@ -2035,6 +2045,13 @@ Quy tắc quan trọng:
                 },
             },
         ];
+    }
+
+    _modelSupportsVision() {
+        const model = (this.currentModel || '').toLowerCase();
+        // Models that support vision/image input
+        const visionModels = ['gpt-4o', 'gpt-4.1', 'o3', 'o4', 'claude', 'gemini', 'deepseek-vl', 'llama-4', 'qwen-vl', 'glm-4v'];
+        return visionModels.some(vm => model.includes(vm));
     }
 
     async _executeToolCall(toolCall) {
