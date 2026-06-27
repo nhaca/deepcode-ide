@@ -3,7 +3,7 @@ class AIPanel {
         this.container = container;
         this.state = state;
         this.history = JSON.parse(localStorage.getItem('deepcode-chat-history') || '[]');
-        this._agentLoopMaxIterations = 10;
+        this._agentLoopMaxIterations = 20;
         this.isStreaming = false;
         this.credits = null;
         this.passport = JSON.parse(localStorage.getItem('deepcode-passport') || '[]');
@@ -1169,9 +1169,9 @@ Chose option 2 because safer.
 Write thinking in the SAME language as the user's question. After thinking, write the final answer clearly.`;
             }
 
-            const tierMaxContext = { free: 4096, pro: 32768, premium: 65536, business: 128000 };
+            const tierMaxContext = { free: 32768, pro: 65536, premium: 131072, business: 262144 };
             const tier = this.credits?.tier || 'free';
-            const tierMax = tierMaxContext[tier] || 4096;
+            const tierMax = tierMaxContext[tier] || 32768;
             const maxContext = tierMax;
             const resetLimit = tier === 'premium' || tier === 'business' ? Infinity : (tier === 'pro' ? 30 : 5);
             const resetCount = parseInt(localStorage.getItem('deepcode-reset-count') || '0');
@@ -2160,6 +2160,7 @@ Quy tắc quan trọng:
         const tools = this._getAgentTools();
         let iterations = 0;
         let finalContent = '';
+        let filesRead = 0;
 
         while (iterations < this._agentLoopMaxIterations) {
             iterations++;
@@ -2177,13 +2178,19 @@ Quy tắc quan trọng:
             if (!message) break;
 
             if (message.tool_calls && message.tool_calls.length > 0) {
+                // Show any content alongside tool_calls (model's intermediate reasoning)
+                if (message.content) {
+                    this.updateMessage(responseEl, (finalContent || '') + '\n\n' + message.content, false);
+                    finalContent = (finalContent || '') + '\n\n' + message.content;
+                }
                 apiMessages.push({ role: 'assistant', content: message.content || null, tool_calls: message.tool_calls });
 
                 for (const toolCall of message.tool_calls) {
                     const fnName = toolCall.function.name;
                     const args = typeof toolCall.function.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function.arguments;
+                    if (fnName === 'read_file' || fnName === 'list_directory') filesRead++;
 
-                    this.addMessage(`🔧 ${fnName}(${JSON.stringify(args).slice(0, 100)}${JSON.stringify(args).length > 100 ? '...' : ''})`, 'system');
+                    this.addMessage(`🔧 ${fnName}(${JSON.stringify(args).slice(0, 100)}${JSON.stringify(args).length > 100 ? '...' : ''}) [${filesRead} files read]`, 'system');
 
                     const result = await this._executeToolCall(toolCall);
                     apiMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
