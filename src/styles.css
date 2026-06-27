@@ -1496,8 +1496,11 @@ body {
     max-width: 85%;
 }
 
-.ai-message.assistant .ai-msg-header {
+.ai-msg-model {
+    font-size: 11px;
+    color: var(--text-muted);
     margin-bottom: 4px;
+    font-weight: 500;
 }
 
 .ai-message.assistant .ai-message-content {
@@ -1507,13 +1510,6 @@ body {
     border: 1px solid var(--border-color);
     word-wrap: break-word;
     white-space: pre-wrap;
-}
-
-.ai-msg-header {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
 }
 
 .ai-avatar {

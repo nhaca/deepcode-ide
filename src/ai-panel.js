@@ -2178,7 +2178,11 @@ Quy tắc quan trọng:
         div.className = `ai-message ${role}`;
 
         if (role === 'assistant') {
+            const model = this.currentModel || 'deepcode-go';
+            const modelNames = { 'auto': 'DeepCode 4.8', 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
+            const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
             div.innerHTML = `
+                <div class="ai-msg-model">${modelName}</div>
                 <div class="ai-message-content">${this.formatContent(content)}</div>
                 <div class="ai-activity-container"></div>
                 <div class="ai-msg-footer">
@@ -2219,7 +2223,11 @@ Quy tắc quan trọng:
                     el._transformed = true;
                     el.style.display = '';
                     this.hideTypingIndicator();
+                    const model = this.currentModel || 'deepcode-go';
+                    const modelNames = { 'auto': 'DeepCode 4.8', 'deepcode-go': 'DeepCode 4.8', 'deepcode-pro': 'DeepCode 5.2', 'deepcode-ultra': 'DeepCode 5.5' };
+                    const modelName = modelNames[model] || (model.includes('/') ? model.split('/').pop() : model);
                     el.innerHTML = `
+                        <div class="ai-msg-model">${modelName}</div>
                         <div class="ai-message-content">${this.formatContentLight(content)}</div>
                         <div class="ai-activity-container"></div>
                         <div class="ai-msg-footer">
