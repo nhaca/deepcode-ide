@@ -47,10 +47,25 @@ class DeepCodeAPI {
         return data;
     }
 
-    async loginWithGitHub(code) {
+    async loginWithGitHub(accessToken) {
+        try {
+            const firebaseAuth = window._firebaseAuth;
+            if (firebaseAuth) {
+                const data = await firebaseAuth.signInWithGitHub(accessToken);
+                if (data && data.idToken) {
+                    this.token = data.idToken;
+                    this.user = data.user || { email: data.email, displayName: data.displayName };
+                    localStorage.setItem('deepcode-token', data.idToken);
+                    return data;
+                }
+            }
+        } catch (e) {
+            console.warn('Firebase GitHub auth failed:', e.message);
+        }
+        // Fallback: send to backend
         const data = await this.request('/api/auth/github', {
             method: 'POST',
-            body: JSON.stringify({ code }),
+            body: JSON.stringify({ code: accessToken }),
         });
         this.token = data.token;
         this.user = data.user;

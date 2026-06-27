@@ -37,8 +37,22 @@ class Settings {
         });
 
         this.updateConnectionStatus();
-        document.getElementById('githubConnectBtn')?.addEventListener('click', () => {
-            window.deepcodeClient?.loginWithGitHub?.();
+        document.getElementById('githubConnectBtn')?.addEventListener('click', async () => {
+            try {
+                window.api.onOAuthCallback(async (data) => {
+                    if (data.provider === 'github' && data.accessToken) {
+                        try {
+                            await window.deepcodeClient?.loginWithGitHub?.(data.accessToken);
+                            this.updateConnectionStatus();
+                        } catch (e) {
+                            console.error('GitHub login failed:', e);
+                        }
+                    }
+                });
+                await window.api.oauthGitHub();
+            } catch (e) {
+                console.error('OAuth error:', e);
+            }
         });
 
         this.setupThemeSelector();
