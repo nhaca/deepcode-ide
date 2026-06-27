@@ -2534,7 +2534,21 @@ Quy tắc quan trọng:
         const ext = extMap[lang] || 'txt';
 
         const defaultName = `new_file.${ext}`;
-        const fileName = prompt('Tên file:', defaultName);
+        const fileName = await new Promise(resolve => {
+            const overlay = document.getElementById('inputModal');
+            document.getElementById('inputModalTitle').textContent = 'Tạo file mới';
+            document.getElementById('inputModalDesc').textContent = 'Nhập tên file:';
+            const field = document.getElementById('inputModalField');
+            field.value = defaultName;
+            overlay.style.display = 'flex';
+            field.focus();
+            field.select();
+            const cleanup = () => { overlay.style.display = 'none'; };
+            document.getElementById('inputModalOk').onclick = (e) => { e.stopPropagation(); cleanup(); resolve(field.value.trim() || null); };
+            document.getElementById('inputModalCancel').onclick = (e) => { e.stopPropagation(); cleanup(); resolve(null); };
+            overlay.onclick = (e) => { if (e.target === overlay) { cleanup(); resolve(null); } };
+            field.onkeydown = (e) => { if (e.key === 'Enter') { e.stopPropagation(); cleanup(); resolve(field.value.trim() || null); } if (e.key === 'Escape') { e.stopPropagation(); cleanup(); resolve(null); } };
+        });
         if (!fileName) return;
 
         const workspaceRoot = this.state.get('workspaceRoot');
