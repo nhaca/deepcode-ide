@@ -379,13 +379,24 @@ class AIPanel {
             { id: 'deepcode-ultra', name: 'DeepCode 5.5' },
         ];
 
-        const providerOrder = ['DeepCode', 'GitHub', 'OpenAI', 'Anthropic', 'Google', 'Meta', 'DeepSeek', 'Mistral', 'Cohere', 'xAI', 'Alibaba', 'Baidu', 'ByteDance', 'Zhipu', '01.AI', 'Other'];
+        const providerOrder = ['DeepCode', 'OpenAI', 'Anthropic', 'Google', 'Meta', 'DeepSeek', 'Mistral', 'Cohere', 'xAI', 'Microsoft', 'Alibaba', 'Baidu', 'ByteDance', 'Zhipu', '01.AI', 'Other'];
 
         const getProvider = (id) => {
             const lower = id.toLowerCase();
             if (lower.startsWith('deepcode')) return 'DeepCode';
-            if (lower.startsWith('github:')) return 'GitHub';
-            if (lower.startsWith('openai') || lower.startsWith('gpt') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) return 'OpenAI';
+            // For github: prefixed models, categorize by actual model provider
+            const raw = lower.startsWith('github:') ? lower.replace('github:', '') : lower;
+            if (raw.startsWith('gpt') || raw.startsWith('o1') || raw.startsWith('o3') || raw.startsWith('o4')) return 'OpenAI';
+            if (raw.startsWith('claude') || raw.startsWith('anthropic')) return 'Anthropic';
+            if (raw.startsWith('gemini') || raw.startsWith('google')) return 'Google';
+            if (raw.startsWith('llama') || raw.startsWith('meta')) return 'Meta';
+            if (raw.startsWith('deepseek')) return 'DeepSeek';
+            if (raw.startsWith('mistral')) return 'Mistral';
+            if (raw.startsWith('cohere') || raw.startsWith('command')) return 'Cohere';
+            if (raw.startsWith('phi')) return 'Microsoft';
+            if (raw.startsWith('qwen') || raw.startsWith('alibaba')) return 'Alibaba';
+            // Non-github models
+            if (lower.startsWith('openai') || lower.startsWith('gpt')) return 'OpenAI';
             if (lower.startsWith('anthropic') || lower.startsWith('claude')) return 'Anthropic';
             if (lower.startsWith('google') || lower.startsWith('gemini')) return 'Google';
             if (lower.startsWith('meta') || lower.startsWith('llama')) return 'Meta';
@@ -404,10 +415,12 @@ class AIPanel {
         };
 
         const cleanName = (id) => {
-            if (id.startsWith('github:')) return id.replace('github:', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-            const slash = id.indexOf('/');
-            const raw = slash > 0 ? id.substring(slash + 1) : id;
-            return raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const isGithub = id.startsWith('github:');
+            const rawId = isGithub ? id.replace('github:', '') : id;
+            const slash = rawId.indexOf('/');
+            const raw = slash > 0 ? rawId.substring(slash + 1) : rawId;
+            const name = raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return isGithub ? `${name} (GitHub)` : name;
         };
 
         const buildGroupedOptions = (models) => {
