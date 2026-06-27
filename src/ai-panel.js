@@ -2050,7 +2050,7 @@ Quy tắc quan trọng:
     _modelSupportsVision() {
         const model = (this.currentModel || '').toLowerCase();
         // Models that support vision/image input
-        const visionModels = ['gpt-4o', 'gpt-4.1', 'o3', 'o4', 'claude', 'gemini', 'deepseek-vl', 'llama-4', 'qwen-vl', 'glm-4v'];
+        const visionModels = ['gpt-4o', 'gpt-4.1', 'o3', 'o4', 'claude', 'gemini', 'deepseek-vl', 'llama-4', 'qwen-vl', 'glm-4v', 'glm-5'];
         return visionModels.some(vm => model.includes(vm));
     }
 
