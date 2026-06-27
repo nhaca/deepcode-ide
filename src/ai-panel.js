@@ -468,11 +468,11 @@ class AIPanel {
             }
         };
 
-        // Clear old model cache to pick up renamed models
+        // Clear old model cache to pick up renamed/new models
         const cacheVersion = localStorage.getItem('deepcode-models-version');
-        if (cacheVersion !== '2') {
+        if (cacheVersion !== '3') {
             localStorage.removeItem('deepcode-cached-models');
-            localStorage.setItem('deepcode-models-version', '2');
+            localStorage.setItem('deepcode-models-version', '3');
         }
 
         const cached = localStorage.getItem('deepcode-cached-models');
